@@ -1,0 +1,49 @@
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+
+# Asset meta backups
+*.tmp
+
+# Visual Studio / Rider / VSCode
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity crash logs
+sysinfo.txt
+*.stackdump
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# Editor & Playmode files
+crashlytics-build.txt
+Assets/AssetStoreTools*
+
+# OS generated
+.DS_Store
+Thumbs.db
