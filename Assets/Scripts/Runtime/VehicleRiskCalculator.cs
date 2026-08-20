@@ -1,147 +1,199 @@
-using System;
 using UnityEngine;
 
-namespace HRIRobot.Risk
+/// <summary>
+/// 単一の動的基準線に対する TTC と危険度スコア。
+/// </summary>
+public class VehicleRiskCalculator : MonoBehaviour
 {
-    /// <summary>
-    /// 危険度連動型eHMI: 車両ごとに各横断ラインに対するTTCと危険度スコアを算出する。
-    /// 仕様書 3.2〜3.4 準拠。経路計画によるウェイポイント列に沿って走行する前提とし、
-    /// 直線予測・ヨーレート予測は行わない。
-    /// </summary>
-    public class VehicleRiskCalculator : MonoBehaviour
+    public DynamicCrossingLineTracker crossingLine;
+    public AGVAgent agv;
+
+    [Range(0f, 1f)] public float currentScore;
+    public bool isVisible;
+
+    public bool SkipScoring;
+
+    const float TTC_MAX = FactoryLayout.EhmiTtcMaxSeconds;
+    const float DISPLAY_DISTANCE_MAX = FactoryLayout.DisplayDistanceMax;
+    const float GAMMA = 0.6f;
+    const float SCORE_FLOOR = 0.08f;
+
+    public bool IsStopped => agv != null && agv.IsStopped;
+
+    void Update()
     {
-        [Serializable]
-        public class CrossingLine
+        if (crossingLine == null || agv == null)
         {
-            public string label;
-            public Transform start;
-            public Transform end;
-
-            [Range(0f, 1f)] public float currentScore;
-            public bool isVisible;
-            [NonSerialized] public float currentTTC = Mathf.Infinity;
+            isVisible = false;
+            currentScore = 0f;
+            return;
         }
 
-        [Header("横断ライン（本環境では3か所）")]
-        public CrossingLine[] crossingLines;
-
-        [Header("経路計画によるウェイポイント列")]
-        public Vector3[] plannedPath;
-
-        [Header("歩行者参照")]
-        public Transform pedestrian;
-
-        [Header("現在速度 (m/s)")]
-        public float currentSpeed;
-
-        [Header("パラメータ")]
-        [Tooltip("表示判定・スコア正規化の両方に使用。予備実験で調整。")]
-        public float ttcMax = 4f;
-        [Tooltip("TTC計算不可の車でも、この距離以内なら表示。")]
-        public float displayDistanceMax = 25f;
-        [Tooltip("ガンマ補正。危険域を早めに強調。")]
-        public float gamma = 0.6f;
-        [Tooltip("表示対象の車に限り、完全に透明にはしない下限値。")]
-        public float scoreFloor = 0.08f;
-        [Tooltip("停止判定のしきい値速度 (m/s)。")]
-        public float stopSpeedThreshold = 0.3f;
-
-        public bool IsStopped => currentSpeed < stopSpeedThreshold;
-
-        void Update()
+        if (SkipScoring)
         {
-            if (pedestrian == null || plannedPath == null || plannedPath.Length < 2 || crossingLines == null)
-                return;
-
-            float distToPedestrian = Vector3.Distance(transform.position, pedestrian.position);
-
-            foreach (var line in crossingLines)
-            {
-                if (line?.start == null || line.end == null)
-                    continue;
-
-                float ttc = ComputeTTCAlongPath(line.start.position, line.end.position);
-                line.currentTTC = ttc;
-
-                bool ttcVisible = !float.IsInfinity(ttc) && ttc <= ttcMax;
-                bool distanceVisible = distToPedestrian <= displayDistanceMax;
-                line.isVisible = ttcVisible || distanceVisible;
-
-                if (!line.isVisible)
-                {
-                    line.currentScore = 0f;
-                    continue;
-                }
-
-                float r = float.IsInfinity(ttc)
-                    ? 0f
-                    : Mathf.Pow(Mathf.Clamp01(1f - ttc / ttcMax), gamma);
-
-                line.currentScore = Mathf.Max(scoreFloor, r);
-            }
+            isVisible = true;
+            currentScore = 1f;
+            return;
         }
 
-        /// <summary>
-        /// 現在位置に最も近いウェイポイントから経路を先読みし、対象の横断ラインとの交点までの
-        /// 経路長を積算してTTCを求める。交点が見つからなければ Infinity（無関係）を返す。
-        /// </summary>
-        float ComputeTTCAlongPath(Vector3 lineStart, Vector3 lineEnd)
+        float distToPedestrian = Vector3.Distance(transform.position, crossingLine.transform.position);
+        float ttc = ComputeTTCAlongPath(
+            crossingLine.AxisStart,
+            crossingLine.AxisEnd,
+            crossingLine.LineHalfWidth);
+
+        bool ttcVisible = !float.IsInfinity(ttc) && ttc <= TTC_MAX;
+        bool distanceVisible = distToPedestrian <= DISPLAY_DISTANCE_MAX;
+        isVisible = ttcVisible || distanceVisible;
+
+        if (!isVisible)
         {
-            int startIdx = FindClosestWaypointIndex(transform.position, plannedPath);
-            float accumulatedDist = 0f;
-            float speed = Mathf.Max(currentSpeed, 0.1f);
+            currentScore = 0f;
+            return;
+        }
 
-            for (int i = startIdx; i < plannedPath.Length - 1; i++)
+        float rTtc = float.IsInfinity(ttc)
+            ? 0f
+            : Mathf.Pow(Mathf.Clamp01(1f - ttc / TTC_MAX), GAMMA);
+
+        float rProx = distToPedestrian >= DISPLAY_DISTANCE_MAX
+            ? 0f
+            : Mathf.Pow(Mathf.Clamp01(1f - distToPedestrian / DISPLAY_DISTANCE_MAX), GAMMA);
+
+        currentScore = Mathf.Max(SCORE_FLOOR, Mathf.Max(rTtc, rProx));
+    }
+
+    float ComputeTTCAlongPath(Vector3 axisStart, Vector3 axisEnd, float halfWidth)
+    {
+        var path = agv.plannedPath;
+        if (path == null || path.Length < 2) return Mathf.Infinity;
+
+        int startIdx = FindClosestWaypointIndex(transform.position, path);
+        float accumulatedDist = 0f;
+
+        for (int i = startIdx; i < path.Length - 1; i++)
+        {
+            Vector3 a = (i == startIdx) ? transform.position : path[i];
+            Vector3 b = path[i + 1];
+
+            if (PathSegmentCrossesThickLine(a, b, axisStart, axisEnd, halfWidth, out Vector3 hit))
             {
-                Vector3 a = (i == startIdx) ? transform.position : plannedPath[i];
-                Vector3 b = plannedPath[i + 1];
-
-                if (SegmentsIntersect(a, b, lineStart, lineEnd, out Vector3 hit))
-                {
-                    accumulatedDist += Vector3.Distance(a, hit);
-                    return accumulatedDist / speed;
-                }
-
-                accumulatedDist += Vector3.Distance(a, b);
-                if (accumulatedDist / speed > ttcMax)
-                    break;
+                accumulatedDist += Vector3.Distance(a, hit);
+                return accumulatedDist / Mathf.Max(agv.currentSpeed, 0.1f);
             }
 
-            return Mathf.Infinity;
+            accumulatedDist += Vector3.Distance(a, b);
+            if (accumulatedDist / Mathf.Max(agv.currentSpeed, 0.1f) > TTC_MAX) break;
+        }
+        return Mathf.Infinity;
+    }
+
+    static bool PathSegmentCrossesThickLine(Vector3 p1, Vector3 p2, Vector3 axisStart, Vector3 axisEnd, float halfWidth, out Vector3 hit)
+    {
+        if (SegmentsIntersect(p1, p2, axisStart, axisEnd, out hit))
+            return true;
+
+        Vector3 axis = axisEnd - axisStart;
+        if (axis.sqrMagnitude < 1e-8f) return false;
+
+        Vector3 perp = Vector3.Cross(Vector3.up, axis.normalized).normalized * halfWidth;
+        if (SegmentsIntersect(p1, p2, axisStart + perp, axisEnd + perp, out hit)) return true;
+        if (SegmentsIntersect(p1, p2, axisStart - perp, axisEnd - perp, out hit)) return true;
+
+        return SegmentPairWithinDistance(p1, p2, axisStart, axisEnd, halfWidth, out hit);
+    }
+
+    static bool SegmentPairWithinDistance(
+        Vector3 p1, Vector3 p2, Vector3 a, Vector3 b, float maxDist, out Vector3 hit)
+    {
+        SegmentSegmentDistanceSqXZ(p1, p2, a, b, out float distSq, out Vector3 onAgv, out _);
+        if (distSq > maxDist * maxDist) { hit = p1; return false; }
+        hit = onAgv;
+        return true;
+    }
+
+    static void SegmentSegmentDistanceSqXZ(
+        Vector3 p1, Vector3 p2, Vector3 a, Vector3 b,
+        out float distSq, out Vector3 closestOnAgv, out Vector3 closestOnAxis)
+    {
+        Vector2 p = new(p1.x, p1.z), r = new(p2.x - p1.x, p2.z - p1.z);
+        Vector2 q = new(a.x, a.z), s = new(b.x - a.x, b.z - a.z);
+        float rLenSq = r.sqrMagnitude;
+        float sLenSq = s.sqrMagnitude;
+
+        if (rLenSq < 1e-8f && sLenSq < 1e-8f)
+        {
+            closestOnAgv = p1;
+            closestOnAxis = a;
+            distSq = (p - q).sqrMagnitude;
+            return;
         }
 
-        bool SegmentsIntersect(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4, out Vector3 hit)
+        float t = 0f, u = 0f;
+        if (rLenSq < 1e-8f)
         {
-            hit = Vector3.zero;
-            Vector2 a = new Vector2(p1.x, p1.z), b = new Vector2(p2.x, p2.z);
-            Vector2 c = new Vector2(p3.x, p3.z), d = new Vector2(p4.x, p4.z);
-
-            Vector2 r = b - a, s = d - c;
+            t = 0f;
+            u = Mathf.Clamp01(Vector2.Dot(p - q, s) / sLenSq);
+        }
+        else if (sLenSq < 1e-8f)
+        {
+            u = 0f;
+            t = Mathf.Clamp01(Vector2.Dot(q - p, r) / rLenSq);
+        }
+        else
+        {
             float denom = r.x * s.y - r.y * s.x;
-            if (Mathf.Abs(denom) < 0.0001f) return false;
-
-            float t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / denom;
-            float u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / denom;
-
-            if (t >= 0f && t <= 1f && u >= 0f && u <= 1f)
+            if (Mathf.Abs(denom) < 1e-8f)
             {
-                Vector2 p = a + t * r;
-                hit = new Vector3(p.x, p1.y, p.y);
-                return true;
+                t = 0f;
+                u = Mathf.Clamp01(Vector2.Dot(p - q, s) / sLenSq);
             }
-            return false;
+            else
+            {
+                t = ((q.x - p.x) * s.y - (q.y - p.y) * s.x) / denom;
+                u = ((q.x - p.x) * r.y - (q.y - p.y) * r.x) / denom;
+                t = Mathf.Clamp01(t);
+                u = Mathf.Clamp01(u);
+            }
         }
 
-        static int FindClosestWaypointIndex(Vector3 pos, Vector3[] path)
+        Vector2 cp = p + t * r;
+        Vector2 cq = q + u * s;
+        closestOnAgv = new Vector3(cp.x, p1.y, cp.y);
+        closestOnAxis = new Vector3(cq.x, a.y, cq.y);
+        distSq = (cp - cq).sqrMagnitude;
+    }
+
+    static bool SegmentsIntersect(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4, out Vector3 hit)
+    {
+        hit = Vector3.zero;
+        Vector2 a = new Vector2(p1.x, p1.z), b = new Vector2(p2.x, p2.z);
+        Vector2 c = new Vector2(p3.x, p3.z), d = new Vector2(p4.x, p4.z);
+
+        Vector2 r = b - a, s = d - c;
+        float denom = r.x * s.y - r.y * s.x;
+        if (Mathf.Abs(denom) < 0.0001f) return false;
+
+        float t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / denom;
+        float u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / denom;
+
+        if (t >= 0f && t <= 1f && u >= 0f && u <= 1f)
         {
-            int best = 0;
-            float bestDist = float.MaxValue;
-            for (int i = 0; i < path.Length; i++)
-            {
-                float d = Vector3.Distance(pos, path[i]);
-                if (d < bestDist) { bestDist = d; best = i; }
-            }
-            return best;
+            Vector2 p = a + t * r;
+            hit = new Vector3(p.x, p1.y, p.y);
+            return true;
         }
+        return false;
+    }
+
+    int FindClosestWaypointIndex(Vector3 pos, Vector3[] path)
+    {
+        int best = 0; float bestDist = float.MaxValue;
+        for (int i = 0; i < path.Length; i++)
+        {
+            float d = Vector3.Distance(pos, path[i]);
+            if (d < bestDist) { bestDist = d; best = i; }
+        }
+        return best;
     }
 }

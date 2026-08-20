@@ -47,3 +47,12 @@ Assets/AssetStoreTools*
 # OS generated
 .DS_Store
 Thumbs.db
+
+# Unity Warehouse asset (import locally from Asset Store; large licensed content)
+Assets/UnityWarehouseSceneHDRP/
+Assets/UnityWarehouseSceneHDRP.meta
+
+# Local editor / MCP config
+.cursor/
+.mcp.json
+Assets/Temp.meta
