@@ -1161,6 +1161,7 @@ public static class FactoryHRISetup
         cc.height = 1.8f;
         cc.center = new Vector3(0f, 0.9f, 0f);
         cc.radius = 0.3f;
+        origin.AddComponent<PlayerXrRig>();
         origin.AddComponent<PlayerLocomotion>();
         origin.AddComponent<DynamicCrossingLineTracker>();
 
