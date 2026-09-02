@@ -1,87 +1,37 @@
 % Overleaf: Compiler = LuaLaTeX
-% 日本語: Menu → Settings → Compiler → LuaLaTeX
-\documentclass[
-  a4paper,
-  11pt,
-  dvipdfmx,
-  titlepage
-]{jlreq}
+\documentclass[a4paper,11pt,dvipdfmx]{jlreq}
 
 \usepackage[margin=25mm]{geometry}
-\usepackage{graphicx}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
-\usepackage{multirow}
 \usepackage{hyperref}
 \usepackage{cleveref}
 \usepackage{enumitem}
 \usepackage{siunitx}
 \sisetup{detect-all=true}
 
-\hypersetup{
-  colorlinks=true,
-  linkcolor=blue,
-  citecolor=blue,
-  urlcolor=blue
-}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue}
 
 \title{%
-  工場内AGV環境における危険度連動経路可視化eHMIの\\%
-  設計とVR実験計画
+  工場内AGV環境における危険度連動経路可視化eHMI\\%
+  --- 研究ストーリー，提案手法，実験設定 ---
 }
-\author{%
-  著者名 \\%
-  \small 所属・メールアドレス
-}
+\author{著者名 \\ \small 所属・メールアドレス}
 \date{\today}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-  スマートファクトリーにおいて，AGV（Automated Guided Vehicle）と作業員の共用空間は拡大しているが，
-  多数のAGVが同時走行する環境では，作業員が衝突リスクを予測しにくいという課題がある．
-  本研究は，AR風の経路オーバーレイを用いたeHMI（external Human-Machine Interface）により，
-  AGVの残り走行経路を提示し，\textbf{危険度に応じて色と不透明度を動的に変化}させる提案手法（Proposed）を設計した．
-  危険度は，参加者の視線方向に基づく動的基準線とAGV残存経路の交差から得られる
-  Time-to-Conflict（TTC），および近接距離の2指標を統合して算出する．
-  提案手法の有効性を検証するため，Meta Quest 3を用いたVR実験を計画する．
-  被験者内3条件（Baseline / No-AR / Proposed）×10ケースの構成とし，
-  完了時間，ニアミス回数，移動距離を従属変数とする．
-  同一ケース番号ではAGVの台数・速度・軌道をシード固定することで条件間の比較妥当性を確保する．
+  多数AGVと作業員が共用する工場環境では，衝突リスクの予測が困難である．
+  本稿では，AGV残存経路をAR風に可視化し，
+  危険度に応じて色と不透明度を変化させる提案手法（Proposed）を提示する．
+  研究ストーリー，数理モデル，VR実験設定の3点を整理し，
+  \textbf{なぜこの研究・提案・実験が妥当か}を論じる．
 \end{abstract}
 
-\tableofcontents
-\newpage
-
-\input{sections/01_introduction}
-\input{sections/02_research_story}
-\input{sections/03_proposed_method}
-\input{sections/04_experiment}
-\input{sections/05_validity}
-\input{sections/06_implementation}
-\input{sections/07_discussion}
-\input{sections/08_conclusion}
-
-\bibliographystyle{jplain}
-\begin{thebibliography}{99}
-  \bibitem{matthiesen2021survey}
-  S.~Matthiesen et al.,
-  ``Survey on eHMI concepts for autonomous vehicles,''
-  \textit{IEEE Transactions on Intelligent Transportation Systems}, 2021.
-  % TODO: 正式な文献情報に差し替え
-
-  \bibitem{francis2020eHMI}
-  C.~Francis et al.,
-  ``A review of external human-machine interfaces for autonomous vehicles,''
-  \textit{Proceedings of the Human Factors and Ergonomics Society Annual Meeting}, 2020.
-  % TODO: 正式な文献情報に差し替え
-
-  \bibitem{markkula2020}
-  A.~Markkula et al.,
-  ``Explaining human interactions with external vehicle displays,''
-  \textit{Transportation Research Part F}, 2020.
-  % TODO: 正式な文献情報に差し替え
-\end{thebibliography}
+\input{sections/01_story}
+\input{sections/02_proposal}
+\input{sections/03_experiment}
 
 \end{document}

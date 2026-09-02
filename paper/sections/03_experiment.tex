@@ -1,0 +1,153 @@
+\section{実験設定}
+\label{sec:experiment}
+
+\subsection{概要}
+
+Unity（URP）工場シーン \texttt{FactoryExperiment} 上で，
+Meta Quest 3（OpenXR）を用いたVR実験を行う．
+10〜20台のAGVが荷物搬送を反復する環境で，
+被験者は \textbf{Station A $\rightarrow$ Station B} へ移動する．
+
+\begin{table}[htbp]
+  \centering
+  \caption{実験空間}
+  \label{tab:layout}
+  \begin{tabular}{ll}
+    \toprule
+    項目 & 値 \\
+    \midrule
+    Station A（開始） & $(22,\, 0.2,\, 9)$ \\
+    Station B（ゴール） & $(9,\, 0.2,\, 58)$ \\
+    ゴール判定 & Station B 半径 \SI{3}{m} 以内 \\
+    歩行速度 & \SI{1.4}{m/s} \\
+    AGV速度 & \SIrange{1.0}{2.0}{m/s}（ケースごと固定） \\
+    AGV台数 & 10--20台（ケースごと固定） \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{デザイン}
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{計画}: 被験者内，3条件 $\times$ 10ケース $=$ 30試行／人
+  \item \textbf{条件}: Baseline / No-AR / Proposed
+  \item \textbf{ケース固定}: 同一ケース番号では乱数シードを固定し，
+        \textbf{3条件でAGVの台数・速度・軌道を完全一致}させる
+  \item \textbf{被験者数}: 予備実験後に決定（パイロット $n \ge 8$ 推奨）
+\end{itemize}
+
+同一ケースでAGV挙動を揃えることは，条件間比較の\textbf{内部妥当性}を確保するための
+最も重要な統制である．
+
+\subsection{手続き}
+
+\begin{enumerate}[leftmargin=2em]
+  \item 説明・同意，HMD装着，操作練習
+  \item 実験者がPCメニューで条件とケース（1--10）を選択
+  \item 3秒イントロ後，Station A に出現
+  \item 被験者はStation B へ移動（左スティック，HMD視点）
+  \item ゴール到着で試行終了 $\rightarrow$ データ保存 $\rightarrow$ 次ケース
+\end{enumerate}
+
+\subsection{従属変数}
+
+\begin{table}[htbp]
+  \centering
+  \caption{従属変数（仮説 H1--H3 との対応）}
+  \label{tab:dv}
+  \begin{tabular}{lllp{4.5cm}}
+    \toprule
+    変数 & 単位 & 検証仮説 & 定義 \\
+    \midrule
+    完了時間 & s & H2, H3 & A出発からB到達まで \\
+    ニアミス & 回 & H1 & 閾値\SI{0.8}{m}以内接近 \\
+    移動距離 & m & H2, H3 & 水平軌跡長 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+ニアミス閾値 \SI{0.8}{m} $=$ AGV半径\SI{0.5}{m} $+$ 被験者半径\SI{0.3}{m}．
+AGVごとにクールダウン \SI{1.5}{s} を設け，同一接近の重複カウントを防ぐ．
+
+\subsection{データ記録}
+
+1セッション1 Excel（.xlsx）．
+Summary に条件・ケース・従属変数，ケース別シートに \SI{0.5}{s} 間隔の位置を記録する．
+
+\subsection{実験設定の妥当性}
+
+本節で，\textbf{なぜこの実験設定でRQに答えられるか}を整理する．
+
+\paragraph{構成概念の妥当性}
+測りたい概念と指標の対応を明示する（\Cref{tab:construct}）．
+
+\begin{table}[htbp]
+  \centering
+  \caption{構成概念の操作化}
+  \label{tab:construct}
+  \begin{tabular}{ll}
+    \toprule
+    測りたいこと & どう測るか \\
+    \midrule
+    移動効率 & 完了時間，移動距離 \\
+    安全性 & ニアミス回数（\SI{0.8}{m}） \\
+    経路情報の有無 & Baseline / No-AR / Proposed \\
+    危険度連動の有無 & Proposed のみ $R$ 連動 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+H1--H3 それぞれに対応する従属変数が定義されており，
+\textbf{仮説と計測が1対1で結びついている}．
+
+\paragraph{内部妥当性（条件間比較の信頼性）}
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{シード固定}: 同一ケースでAGV挙動を一致 $\rightarrow$ 条件差は表示方式のみ
+  \item \textbf{被験者内}: 個人差（歩行速度，空間認知）を条件効果から分離
+  \item \textbf{自動計測}: 観察者バイアスを低減
+  \item \textbf{空間固定}: Station A/B，NavMesh，レイアウトは全条件共通
+\end{itemize}
+
+残存する脅威（条件順序の学習効果，VR酔い）には，
+カウンターバランス・休憩・事前練習で対処する．
+
+\paragraph{外部妥当性（結果の解釈範囲）}
+
+VR工場は実工場の簡略化であるが，
+\textbf{「多数AGVと作業員が通路を共有し，時間的圧力下で回避する」}
+という本質的状況は再現できる．
+結果は「AR経路eHMI方式の\emph{相対比較}」として解釈するのが適当である．
+
+\paragraph{統計的分析（予定）}
+
+\begin{itemize}[leftmargin=2em]
+  \item 3条件の反復測定ANOVA（または Friedman 検定）
+  \item 事後: Proposed vs.\ Baseline，Proposed vs.\ No-AR（Bonferroni補正）
+  \item 効果量（$\eta^2$ または Cohen's $d$）を報告，$\alpha=0.05$
+\end{itemize}
+
+\paragraph{妥当性の総括}
+
+\begin{table}[htbp]
+  \centering
+  \caption{研究全体の妥当性チェックリスト}
+  \label{tab:validity}
+  \begin{tabular}{p{2.8cm}p{9.8cm}}
+    \toprule
+    観点 & 本研究での対応 \\
+    \midrule
+    問いの明確さ & RQ：危険度連動表示の効果 \\
+    独立変数 & 3条件で危険度エンコーディングを分離 \\
+    従属変数 & 効率・安全を自動計測 \\
+    統制 & シード固定でAGV一致 \\
+    仮説 & H1--H3 が従属変数と対応 \\
+    一般化 & VR内比較として解釈（現場検証は今後） \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+以上より，本研究は
+\textbf{「危険度連動eHMIが，均一表示・非表示と比べて
+効率と安全のバランスを改善するか」}
+という問いに，方法論的に妥当な形で答えられる計画である．

@@ -1,0 +1,88 @@
+\section{研究ストーリー}
+\label{sec:story}
+
+\subsection{背景と問題}
+
+製造現場ではAGV導入が進み，作業員とAGVが同一通路を共有する場面が増えている．
+10〜20台規模で同時走行する環境では，
+\textbf{どのAGVが自分にとって危険か}を瞬時に判断することが難しい．
+
+経路をARで常時表示するeHMIは存在するが，
+\textbf{すべてのAGVを同じ見た目で表示する}だけでは，
+危険の程度を区別できず，注意資源が分散する恐れがある．
+
+\subsection{研究課題}
+
+\begin{quote}
+  \textbf{RQ:}
+  AGV残存経路の可視化において，
+  \emph{危険度に応じた視覚エンコーディング}は，
+  作業員の移動効率と安全性にどのような影響を与えるか？
+\end{quote}
+
+この課題に答えるため，3条件を被験者内で比較する（\Cref{tab:conditions_preview}）．
+
+\begin{table}[htbp]
+  \centering
+  \caption{比較する3条件（概要）}
+  \label{tab:conditions_preview}
+  \begin{tabular}{lll}
+    \toprule
+    条件 & 経路表示 & 危険度連動 \\
+    \midrule
+    Baseline & あり（固定色） & なし \\
+    No-AR    & なし           & --- \\
+    Proposed & あり           & あり（本提案） \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{ストーリーライン}
+
+本研究は次の論理で構成される．
+
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{問題}: 多数AGV環境での衝突リスク予測の困難さ
+  \item \textbf{限界}: 均一な経路表示では危険の優先順位付けができない
+  \item \textbf{提案}: TTCと近接距離から危険度 $R$ を算出し，
+        色相（連続）と不透明度（4段階）で残存経路を動的に強調
+  \item \textbf{検証}: VR工場で Station A$\rightarrow$B 移動タスクを実施
+  \item \textbf{期待}: Proposedは No-AR より安全に，
+        Baseline より情報過多を抑えつつ適切な注意喚起を実現
+\end{enumerate}
+
+\subsection{研究仮説}
+
+\begin{description}[leftmargin=0em,style=nextline]
+  \item[\textbf{H1（安全性）}]
+    Proposed $<$ No-AR（ニアミス回数）\\
+    \emph{根拠}: 危険AGVの経路が視覚的に強調され，回避行動が促進される．
+
+  \item[\textbf{H2（効率）}]
+    Proposed $<$ Baseline（完了時間または移動距離）\\
+    \emph{根拠}: 危険度連動により，非危険AGVへの注意配分が減り，移動がスムーズになる．
+
+  \item[\textbf{H3（情報の有用性）}]
+    No-AR $>$ Proposed（完了時間または移動距離）\\
+    \emph{根拠}: 経路情報がないとAGVの動きを予測できず，迂回・停止が増える．
+\end{description}
+
+\subsection{研究としての妥当性（概念的根拠）}
+
+本研究が\textbf{意味のある問い}である理由を3点示す．
+
+\paragraph{（1）理論的一貫性}
+危険度の時間予測に TTC（Time-to-Conflict）を用いる設計は，
+交通・HRI分野の慣行に沿う．
+加えて近接距離を統合することで，
+「交差しないが近い」「交差するがまだ遠い」両方をカバーできる．
+
+\paragraph{（2）操作可能な独立変数}
+Baseline（情報あり・均一），No-AR（情報なし），Proposed（情報あり・危険度連動）は，
+\textbf{危険度エンコーディングの有無}を明確に分離する3水準である．
+これにより，Proposedの効果を単独要因として解釈しやすい．
+
+\paragraph{（3）測定可能な従属変数}
+移動効率（完了時間，移動距離）と安全性（ニアミス回数）は，
+VR上で自動計測可能であり，主観評価のみに依存しない．
+H1--H3はいずれも，これらの客観指標で検証できる．

@@ -1,0 +1,108 @@
+\section{Proposal：危険度連動eHMI}
+\label{sec:proposal}
+
+\subsection{処理の流れ}
+
+各AGVについて，毎フレーム以下を実行する．
+
+\begin{enumerate}[leftmargin=2em]
+  \item 参加者の視線方向から\textbf{動的基準線}（太線ゾーン）を更新
+  \item AGV残存計画経路と基準線の交差から \textbf{TTC} を算出
+  \item TTCと近接距離から危険度スコア $R \in [0,1]$ を計算
+  \item $R$ を色相・彩度・明度・不透明度に変換し，経路（または停止線）を描画
+\end{enumerate}
+
+\subsection{動的基準線（視線方向）}
+
+目的地最短経路ではなく，\textbf{現在見ている方向}に注目領域を置く．
+HMDのforwardをXZ平面に投影した $\mathbf{f}$ からレイキャストし，
+障害物との交点 $\mathbf{h}$ を求める．床面上の基準軸は
+\begin{equation}
+  \mathbf{a}_\text{start} = \mathbf{p}, \quad
+  \mathbf{a}_\text{end} = \mathrm{flatten}(\mathbf{h})
+\end{equation}
+半幅 $w=\SI{0.5}{m}$（全幅\SI{1.0}{m}）の帯状ゾーンとして，
+AGV経路との交差判定に用いる．
+立ち止まって別方向を見た場合も，視線に追従して危険評価が更新される．
+
+\subsection{危険度スコア $R$}
+
+\paragraph{表示可否}
+\begin{equation}
+  \text{visible} = (T \le T_\text{max}) \vee (d \le D_\text{max})
+\end{equation}
+$T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}$．
+表示距離上限は $(v_\text{AGV,max}+v_\text{ped})\times T_\text{max}=(2.0+1.4)\times4$ から導出する．
+
+\paragraph{TTC}
+AGV残存経路上を速度 $v$ で走行したとき，基準線ゾーンとの最初の交差までの時間：
+\begin{equation}
+  T = \frac{s}{\max(v,\, v_\text{min})}, \quad v_\text{min}=\SI{0.1}{m/s}
+\end{equation}
+
+\paragraph{統合}
+\begin{align}
+  R_\text{ttc} &=
+  \begin{cases}
+    0 & T = \infty \\
+    \left(1 - T/T_\text{max}\right)^{\gamma} & 0 \le T \le T_\text{max}
+  \end{cases} \\[4pt]
+  R_\text{prox} &=
+  \begin{cases}
+    0 & d \ge D_\text{max} \\
+    \left(1 - d/D_\text{max}\right)^{\gamma} & d < D_\text{max}
+  \end{cases} \\[4pt]
+  R &= \max(R_\text{ttc},\, R_\text{prox},\, R_\text{floor})
+\end{align}
+$\gamma=0.6$，$R_\text{floor}=0.08$．
+
+\subsection{視覚マッピング（Proposedのみ）}
+
+色相は連続，不透明度は4段階に量子化する．
+\begin{align}
+  H(R) &= (1-R) \times 180° \quad \text{（青緑$\rightarrow$赤）} \\
+  S(R) &= 0.4 + 0.6R, \quad V(R) = 0.5 + 0.3R \\
+  \alpha(R) &\in \{0.35,\, 0.55,\, 0.80,\, 1.00\}
+\end{align}
+
+危険度が上がると \textbf{青緑・半透明 $\rightarrow$ 赤・不透明} へ変化し，
+「だんだん危なくなっている」ことが視覚的に伝わる．
+
+\subsection{経路描画}
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{走行中}: 残存経路をテーパー付きライン（根元\SI{0.65}{m}，先端\SI{0.12}{m}）で表示
+  \item \textbf{停止中}: 停止線（全幅\SI{1.0}{m}）を表示
+  \item \textbf{表示距離}: 被験者から水平\SI{13.6}{m}以内のAGVのみ
+  \item \textbf{描画優先}: $\mathrm{sortingOrder}=\mathrm{round}(R\times100)$（危険なAGVを手前に）
+\end{itemize}
+
+\begin{table}[htbp]
+  \centering
+  \caption{3条件の対照（Proposal節のまとめ）}
+  \label{tab:conditions}
+  \begin{tabular}{lccc}
+    \toprule
+    項目 & Baseline & No-AR & Proposed \\
+    \midrule
+    経路表示 & あり & なし & あり \\
+    危険度計算 & なし（$R=1$固定） & --- & TTC + 近接 \\
+    色 & 固定青 & --- & HSV連動 \\
+    不透明度 & 1.0固定 & --- & 4段階 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Proposalとしての妥当性}
+
+\paragraph{再現可能性}
+$R$ は TTC，距離，速度から\textbf{決定論的}に算出される．
+被験者や実験者の主観が刺激生成に介入しない．
+
+\paragraph{Baseline / No-AR との分離}
+Proposedだけが $R$ に連動するため，
+\textbf{危険度エンコーディングの効果}を他条件と比較して評価できる．
+
+\paragraph{パラメータの根拠}
+$T_\text{max}$，$D_\text{max}$ は AGV最大速度と歩行速度から導出され，
+「数秒先まで，相対速度で到達しうる距離内」を表示対象とする設計になっている．
