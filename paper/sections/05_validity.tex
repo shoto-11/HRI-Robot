@@ -1,0 +1,97 @@
+\section{実験の妥当性}
+\label{sec:validity}
+
+本節では，計画したVR実験が研究課題に答えるに足る\textbf{妥当性}を，
+Campbell \& Stanley の枠組みと現代HRI研究の慣行に沿って論じる．
+
+\subsection{構成概念の妥当性（Construct Validity）}
+
+\textbf{測定したい概念}と\textbf{操作・指標}の対応関係を次のように定義する．
+
+\begin{table}[htbp]
+  \centering
+  \caption{構成概念と操作化}
+  \label{tab:construct}
+  \begin{tabular}{ll}
+    \toprule
+    構成概念 & 操作化 \\
+    \midrule
+    移動効率 & 完了時間，移動距離 \\
+    安全性（ニアミス） & 閾値\SI{0.8}{m}以内の接近回数 \\
+    経路情報の提示 & Baseline / No-AR / Proposed \\
+    危険度連動表示 & Proposed条件のみ $R$ に基づく色・不透明度 \\
+    AGV環境の複雑さ & 10--20台，ピックアップ／ドロップ反復 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Proposed条件では，TTCと近接距離という\textbf{客観的指標}から $R$ を算出し，
+色相・不透明度へ決定論的に写像するため，
+操作者バイアスが視覚刺激に混入しにくい．
+また，Baseline条件は「情報量一定・危険度エンコードなし」，
+No-ARは「情報ゼロ」として，\textbf{危険度連動の効果}を分離して評価できる．
+
+\subsection{内部妥当性（Internal Validity）}
+
+条件間比較の信頼性を高めるため，以下の統制を行う．
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{AGV挙動の固定}:
+        同一ケース番号では乱数シードを固定し，
+        3条件でAGV台数・速度・経路計画を一致させる
+  \item \textbf{空間・タスクの固定}:
+        Station A/B，NavMesh，工場レイアウトは全条件共通
+  \item \textbf{被験者内デザイン}:
+        個人差（歩行速度，空間認知能力）を条件効果から分離
+  \item \textbf{自動計測}:
+        完了時間，ニアミス，軌跡はプログラムで記録し，観察者バイアスを低減
+\end{itemize}
+
+\textbf{残存する脅威}として，(1)条件提示順序の学習効果，
+(2)VR酔い，(3)被験者の危険感の個人差が挙げられる．
+これらに対し，条件順序のカウンターバランス（またはラテン方格），
+休憩の挿入，事前練習を計画する．
+
+\subsection{外部妥当性（External Validity）}
+
+VR工場環境は実工場の完全な再現ではないが，
+\textbf{複数AGVと作業員の通路共有}という本質的状況を再現する．
+AGVはNavMesh上を走行し，被験者はCharacterControllerで歩行するため，
+\textbf{衝突回避の時間的圧力}は現実に近い形で生じる．
+
+一方，視覚・聴覚（エンジン音等），物理的触覚は簡略化されている．
+したがって本実験の結果は，
+「\textbf{AR経路eHMIの相対比較}」として解釈するのが適切であり，
+絶対的な事故率予測には追加の現場検証が必要である．
+
+\subsection{統計的結論の妥当性}
+
+\begin{itemize}[leftmargin=2em]
+  \item 従属変数ごとに正規性・球面性を確認
+  \item 主分析: 3条件の反復測定ANOVA（または非パラメトリック代替）
+  \item 事後検定: Proposed vs.\ Baseline，Proposed vs.\ No-AR（Bonferroni補正）
+  \item 効果量: $\eta^2$ または Cohen's $d$ を報告
+  \item 有意水準: $\alpha = 0.05$
+\end{itemize}
+
+\subsection{実験計画の妥当性まとめ}
+
+\begin{table}[htbp]
+  \centering
+  \caption{妥当性の総合評価}
+  \label{tab:validity_summary}
+  \begin{tabular}{p{3.2cm}p{9.5cm}}
+    \toprule
+    観点 & 評価 \\
+    \midrule
+    研究課題との整合 & RQ（危険度連動表示の効果）に直接対応した3条件比較 \\
+    操作化 & $R$ の数理定義と実装が一致（再現可能） \\
+    統制 & シード固定によるAGV挙動一致 \\
+    一般化 & VR内比較として妥当；現場一般化は今後の課題 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+本実験は，\textbf{「危険度連動eHMIが，情報なし・均一表示と比べて
+効率と安全のトレードオフを改善するか」}を検証するうえで，
+方法論的に妥当な計画であると言える．

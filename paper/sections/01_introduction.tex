@@ -1,0 +1,42 @@
+\section{はじめに}
+\label{sec:intro}
+
+\subsection{背景}
+
+製造現場の自動化が進む中，AGVは荷物搬送の中核として導入されている．
+AGV導入により搬送効率は向上する一方，作業員とAGVが同一通路を共有する場面が増え，
+\textbf{衝突・ニアミス・歩行の中断}といった安全上のリスクが顕在化している．
+
+従来，AGVの意図は音，光，表示板などのeHMIで伝達されるが，
+\textbf{多数台が同時に存在する}工場環境では，どのAGVが自分にとって危険かを
+瞬時に判断することが困難である．
+特に作業員が目的地へ移動しながら周囲を監視するタスクでは，
+全AGVの経路を等しく表示するだけでは情報過多となり，
+注意資源の配分が非効率になる可能性がある．
+
+\subsection{課題設定}
+
+本研究が扱う中心的課題は次の通りである．
+
+\begin{quote}
+  \textbf{研究課題（RQ）:}
+  AGVの残存走行経路をAR風に可視化する際，
+  \emph{危険度に応じた視覚エンコーディング}は，
+  作業員の移動効率と安全性（ニアミス）にどのような影響を与えるか？
+\end{quote}
+
+この課題に答えるため，以下の3条件を被験者内で比較する．
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Baseline}: 全AGVの経路を同一の固定色・不透明度で表示
+  \item \textbf{No-AR}: 経路表示なし（情報なしの対照）
+  \item \textbf{Proposed}: TTCと近接距離に基づく危険度連動表示（本提案）
+\end{itemize}
+
+\subsection{本稿の構成}
+
+\Cref{sec:story}で研究ストーリーと仮説を述べ，
+\Cref{sec:method}で提案eHMIの数理モデルを説明する．
+\Cref{sec:experiment}でVR実験計画，
+\Cref{sec:validity}で実験の妥当性を論じ，
+\Cref{sec:implementation}で実装概要を示す．

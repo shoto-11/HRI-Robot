@@ -1,0 +1,36 @@
+\section{考察（予定）}
+\label{sec:discussion}
+
+\subsection{期待される結果パターン}
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Proposed $<$ No-AR（安全）}:
+        危険AGVの経路が赤く強調され，回避が促進される
+  \item \textbf{Proposed $<$ Baseline（効率）}:
+        非危険AGVの表示が抑制され，注意資源が節約される
+  \item \textbf{Proposed $>$ Baseline（安全）}:
+        均一表示では見落としていた危険AGVが強調される
+\end{itemize}
+
+\subsection{設計上の論点}
+
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{視線追従基準線}:
+        目的地を仮定しないため，作業中の視線変化に頑健である一方，
+        視線がAGV方向を向いていないときの検出限界がある．
+  \item \textbf{2D交差判定}:
+        床面走行AGVを前提としたXZ平面近似であり，
+        段差・立体障害は今後の拡張課題である．
+  \item \textbf{不透明度の量子化}:
+        連続色と段階的不透明度の組合せが，
+        被験者の危険認知に与える影響は主観評価で補完可能である．
+\end{enumerate}
+
+\subsection{限界と今後の展開}
+
+\begin{itemize}[leftmargin=2em]
+  \item 現場環境（騒音，荷物，疲労）の再現
+  \item 被験者数の拡大と現場パイロット
+  \item 基準線半幅 $w$，$T_\text{max}$ の感度分析
+  \item 主観的ワークロード（NASA-TLX）・信頼尺度の追加
+\end{itemize}

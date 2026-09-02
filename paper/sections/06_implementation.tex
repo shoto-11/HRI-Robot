@@ -1,0 +1,47 @@
+\section{実装概要}
+\label{sec:implementation}
+
+提案手法はUnity 6（URP）プロジェクト \texttt{HRI-Robot} に実装済みである．
+\Cref{tab:impl}に論文概念と実装クラスの対応を示す．
+
+\begin{table}[htbp]
+  \centering
+  \caption{論文概念と実装の対応}
+  \label{tab:impl}
+  \begin{tabular}{ll}
+    \toprule
+    論文概念 & 実装クラス \\
+    \midrule
+    動的基準線 & \texttt{DynamicCrossingLineTracker} \\
+    危険度スコア & \texttt{VehicleRiskCalculator} \\
+    色・不透明度 & \texttt{RiskToVisualMapper} \\
+    経路描画 & \texttt{PathRenderer} \\
+    条件切替 & \texttt{AGVPathVisualizer} \\
+    実験制御 & \texttt{ExperimentManager} \\
+    データ出力 & \texttt{MeasurementHub}, \texttt{ExperimentWorkbook} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{AGVシミュレーション}
+
+各AGVは \texttt{MovingToPickup} $\rightarrow$ \texttt{DwellAtPickup}
+$\rightarrow$ \texttt{MovingToDrop} $\rightarrow$ \texttt{DwellAtDrop}
+のサイクルを反復する．
+経路計画はNavMesh上のA*相当処理（\texttt{AGVRoutePlanner}）で，
+床面高 $y=\SI{0.15}{m}$ に固定する．
+全AGVは\SI{0.1}{s}固定クロックで一括更新される（\texttt{AGVFleetOrchestrator}）．
+
+\subsection{実験フロー}
+
+\texttt{ExperimentStartMenu} により条件（Baseline / No-AR / Proposed）と
+ケース1--10を選択する．
+ケース開始時に \texttt{AGVSpawner.RestartWithSeed(seed)} を呼び，
+ゴール到着時にExcelへ結果を追記する．
+
+\subsection{再現性}
+
+同一リポジトリ，同一シーン，同一シード列により，
+他研究者が実験刺激を再現可能である．
+倉庫3Dアセット（Unity Warehouse）はローカルインポートとし，
+GitHubには含めない（ライセンス・容量のため）．
