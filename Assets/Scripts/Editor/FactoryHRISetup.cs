@@ -660,7 +660,7 @@ public static class FactoryHRISetup
                 continue;
             }
             l.shadows = LightShadows.None;
-            l.intensity = 15f;
+            l.intensity = 20f;
         }
 
         var animSample = GameObject.Find("Animation Sample");
@@ -897,10 +897,10 @@ public static class FactoryHRISetup
         probe.mode = UnityEngine.Rendering.ReflectionProbeMode.Baked;
         probe.size = new Vector3(120f, 30f, 120f);
         probe.center = Vector3.zero;
-        probe.intensity = 0.85f;
+        probe.intensity = 1.05f;
         probe.boxProjection = true;
         probe.resolution = 128;
-        probe.backgroundColor = new Color(0.18f, 0.17f, 0.16f);
+        probe.backgroundColor = new Color(0.28f, 0.27f, 0.25f);
         go.transform.position = Vector3.zero;
     }
 
@@ -917,7 +917,7 @@ public static class FactoryHRISetup
             var mat = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
             if (mat == null || !names.Contains(mat.name)) continue;
 
-            var emissive = new Color(0.95f, 0.92f, 0.82f);
+            var emissive = new Color(1.15f, 1.10f, 0.95f);
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", Color.white);
             if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", emissive);
@@ -935,12 +935,12 @@ public static class FactoryHRISetup
         foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
         {
             if (l == null || l.type != LightType.Point) continue;
-            l.intensity = 15f;
-            l.range = Mathf.Max(l.range, 10f);
+            l.intensity = 20f;
+            l.range = Mathf.Max(l.range, 12f);
             l.shadows = LightShadows.None;
             count++;
         }
-        Debug.Log($"[FactoryHRISetup] 倉庫ポイントライト {count} 件を調整 (intensity=15, Drone同等)");
+        Debug.Log($"[FactoryHRISetup] 倉庫ポイントライト {count} 件を調整 (intensity=20)");
     }
 
     static void EnsureWarehouseFillLight()
@@ -960,8 +960,8 @@ public static class FactoryHRISetup
 
         if (light == null) return;
         light.type = LightType.Directional;
-        light.intensity = 1.35f;
-        light.color = new Color(1f, 0.97f, 0.92f);
+        light.intensity = 1.85f;
+        light.color = new Color(1f, 0.98f, 0.94f);
         light.shadows = LightShadows.Soft;
     }
 
@@ -1034,15 +1034,15 @@ public static class FactoryHRISetup
     {
         RenderSettings.skybox = null;
         RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = new Color(0.12f, 0.11f, 0.10f);
-        RenderSettings.ambientIntensity = 1f;
+        RenderSettings.ambientLight = new Color(0.26f, 0.25f, 0.23f);
+        RenderSettings.ambientIntensity = 1.15f;
         RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
-        RenderSettings.reflectionIntensity = 0f;
+        RenderSettings.reflectionIntensity = 0.15f;
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.Linear;
-        RenderSettings.fogStartDistance = 25f;
-        RenderSettings.fogEndDistance = 55f;
-        RenderSettings.fogColor = new Color(0.15f, 0.14f, 0.13f);
+        RenderSettings.fogStartDistance = 35f;
+        RenderSettings.fogEndDistance = 70f;
+        RenderSettings.fogColor = new Color(0.28f, 0.27f, 0.25f);
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
