@@ -32,10 +32,11 @@ def score(d, t):
 
 
 def estimate_ttc(x, y, theta, speed=1.2):
-    """Deterministic TTC proxy from pose (same idea as before, no randomness)."""
-    move_y = -np.cos(np.deg2rad(theta))  # θ=0 → toward worker (−y from +y)
-    move_x = np.sin(np.deg2rad(theta))
+    """Deterministic TTC proxy. θ=0 is +Y (same as worker forward)."""
+    move_y = np.cos(np.deg2rad(theta))  # θ=0 → +Y
+    move_x = np.sin(np.deg2rad(theta))  # θ=90 → +X
     t = np.full(np.shape(x), np.inf, dtype=float)
+    # Toward worker / baseline from +y: need −Y motion
     approach = (y > 0.05) & (move_y < -0.05)
     t[approach] = y[approach] / (np.abs(move_y[approach]) * speed)
     cross = (~approach) & (np.abs(y) < 3.0) & (np.abs(move_x) > 0.35) & (x * move_x < 0)
@@ -125,7 +126,7 @@ def save_fig(fig, stem: str):
 
 def save_theta_slices(x, y, theta, colors, examples):
     """xy planes at representative headings."""
-    slice_thetas = [-90, -60, 0, 60, 90, 180]
+    slice_thetas = [-90, -135, 180, 135, 90, 0]
     fig, axes = plt.subplots(2, 3, figsize=(12, 8), dpi=150, sharex=True, sharey=True)
     for ax, th0 in zip(axes.ravel(), slice_thetas):
         m = np.isclose(theta, th0)
@@ -142,7 +143,10 @@ def save_theta_slices(x, y, theta, colors, examples):
         ax.set_xlim(-15, 15)
         ax.set_ylim(-0.5, 14.5)
         ax.set_aspect("equal", adjustable="box")
-    fig.suptitle("Pose space sliced by heading θ — each panel is one xy plane", fontsize=12)
+    fig.suptitle(
+        "Pose space sliced by heading θ (θ=0 = +Y) — each panel is one xy plane",
+        fontsize=12,
+    )
     fig.tight_layout()
     save_fig(fig, "risk_particles_slices_theta")
     plt.close(fig)
@@ -202,14 +206,14 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
     ax = fig.add_subplot(111, projection="3d")
     ax.scatter(x, y, theta, c=colors, s=3, linewidths=0, depthshade=False, rasterized=True, alpha=0.25)
 
-    for th0 in (-90, 0, 90):
+    for th0 in (-90, 0, 180):
         m = np.isclose(theta, th0)
         ax.scatter(x[m], y[m], theta[m], c=colors[m], s=14, linewidths=0, depthshade=False)
 
     xx = np.linspace(-14, 14, 8)
     yy = np.linspace(0, 14, 8)
     XX, YY = np.meshgrid(xx, yy)
-    for th0, alpha in [(0, 0.12), (90, 0.08), (-90, 0.08)]:
+    for th0, alpha in [(0, 0.12), (180, 0.10), (-90, 0.08)]:
         ZZ = np.full_like(XX, th0)
         ax.plot_surface(XX, YY, ZZ, color="gray", alpha=alpha, linewidth=0, antialiased=False)
 
@@ -221,7 +225,7 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
     ax.set_zlabel("θ (°)")
-    ax.set_title("3D with slice planes at θ = −90°, 0°, 90°")
+    ax.set_title("3D slices: θ=0° (+Y), 180° (toward worker), −90°")
     ax.view_init(elev=22, azim=-58)
     fig.tight_layout()
     save_fig(fig, "risk_particles_slices_3d_planes")
@@ -230,19 +234,20 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
 
 def main():
     examples = dict(
-        A=(0.0, 10.0, 0.0, 1.2),
-        B=(1.5, 0.2, 180.0, np.inf),
-        C=(0.0, 3.0, 0.0, 1.0),
+        # θ=0 is +Y (same as worker). Approach from front = 180°.
+        A=(0.0, 10.0, 180.0, 1.2),
+        B=(1.5, 0.2, 0.0, np.inf),
+        C=(0.0, 3.0, 180.0, 1.0),
         D=(2.0, 1.0, 90.0, 3.5),
         E=(6.8, 0.5, 90.0, 2.0),
-        G=(-5.5, 6.0, 45.0, 1.4),
-        G2=(5.5, 6.0, -45.0, 1.4),
+        G=(-5.5, 6.0, 135.0, 1.4),
+        G2=(5.5, 6.0, -135.0, 1.4),
         H=(-11.0, 2.0, 90.0, 1.5),
     )
 
-    x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=30.0)
+    x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
     colors = np.array([risk_color(r) for r in R])
-    print(f"grid points kept: {len(x)} (Δx=1m, Δy=1m, Δθ=30°)")
+    print(f"grid points kept: {len(x)} (Δx=1m, Δy=1m, Δθ=15°; θ=0 is +Y)")
 
     # ---- 3D ----
     fig3d = plt.figure(figsize=(8.5, 6.5), dpi=150)
@@ -255,7 +260,7 @@ def main():
     ax3d.set_xlabel("x (m)  lateral")
     ax3d.set_ylabel("y (m)  forward")
     ax3d.set_zlabel("θ (deg) heading")
-    ax3d.set_title("3D: regular grid (Δx=Δy=1 m, Δθ=30°) colored by R")
+    ax3d.set_title("3D: regular grid (θ=0 = +Y, same as worker) colored by R")
     ax3d.view_init(elev=22, azim=-58)
     fig3d.tight_layout()
     save_fig(fig3d, "risk_particles_3d")
