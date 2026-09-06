@@ -76,14 +76,9 @@ def main(open_browser: bool = True):
         )
 
     examples = dict(
-        A=(0.0, 10.0, 180.0),
-        B=(1.5, 0.2, 0.0),
-        C=(0.0, 3.0, 180.0),
-        D=(2.0, 1.0, 90.0),
-        E=(6.8, 0.5, 90.0),
-        G=(-5.5, 6.0, 135.0),
-        G2=(5.5, 6.0, -135.0),
-        H=(-11.0, 2.0, 90.0),
+        A=(0.0, 10.0, 180.0),   # toward worker
+        B=(5.5, 6.0, -135.0),   # cross in front
+        C=(1.5, 0.2, 0.0),      # nearby
     )
     ex_x, ex_y, ex_th, ex_c, ex_s, ex_a, ex_t, ex_names = [], [], [], [], [], [], [], []
     for name, (xi, yi, thi) in examples.items():

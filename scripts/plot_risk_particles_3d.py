@@ -282,15 +282,12 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
 
 def main():
     # (x, y, θ); θ=0 is +Y (same as worker). Approach from front = 180°.
+    # Three canonical poses only:
+    # A = approaching the worker, B = crossing in front, C = nearby
     examples = dict(
-        A=(0.0, 10.0, 180.0),
-        B=(1.5, 0.2, 0.0),
-        C=(0.0, 3.0, 180.0),
-        D=(2.0, 1.0, 90.0),
-        E=(6.8, 0.5, 90.0),
-        G=(-5.5, 6.0, 135.0),
-        G2=(5.5, 6.0, -135.0),
-        H=(-11.0, 2.0, 90.0),
+        A=(0.0, 10.0, 180.0),   # toward worker
+        B=(5.5, 6.0, -135.0),   # cross in front
+        C=(1.5, 0.2, 0.0),      # nearby
     )
 
     x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
