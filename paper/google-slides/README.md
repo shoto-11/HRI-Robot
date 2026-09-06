@@ -10,7 +10,8 @@
 | `risk_formula_slide_16x9.png` | 同上（画像） |
 | `risk_appearance.pptx` | 見た目サンプル（全7枚） |
 | `risk_appearance_slide_16x9.png` | 見た目サンプル（1枚画像） |
-| `risk_particles_*.png` | 姿勢空間の危険度粒子グラフ |
+| `risk_particles_*.png` | 姿勢空間の危険度粒子グラフ（静止画） |
+| **`risk_particles_3d_interactive.html`** | **3D をドラッグで回転・ズーム（ブラウザ）** |
 
 ## 研究課題スライドの内容
 
@@ -29,6 +30,8 @@ python paper/google-slides/export_risk_formula_slide.py
 python paper/google-slides/export_risk_swatches.py
 python paper/google-slides/export_pptx_pdf.py
 python scripts/plot_risk_particles_3d.py
+python scripts/plot_risk_particles_3d_interactive.py
 ```
 
-出力は **PNG**（と必要なら PPTX）のみ。PDF は出さない。
+出力は **PNG / HTML**（と必要なら PPTX）のみ。PDF は出さない。
+インタラクティブ 3D は HTML をダブルクリック（またはブラウザで開く）。
