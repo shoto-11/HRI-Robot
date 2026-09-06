@@ -22,7 +22,7 @@ public static class FactoryLayout
     public const float AgvMaxSpeedMps = 2.0f;
     public const float PedestrianSpeedMps = 1.4f;
     public const float EhmiTtcMaxSeconds = 4.0f;
-    /// <summary>近接表示上限 (m): (AGV 最大速度 + 歩行速度) × TTC 上限。</summary>
+    /// <summary>近接表示上限 (m): (AGV 最大速度 + 歩行速度) × TTC 上限。表示ゲートと Rd 正規化に使用。</summary>
     public const float DisplayDistanceMax = (AgvMaxSpeedMps + PedestrianSpeedMps) * EhmiTtcMaxSeconds;
 
     public static readonly Vector3 StationA = new Vector3(22f, 0.2f, 9f);

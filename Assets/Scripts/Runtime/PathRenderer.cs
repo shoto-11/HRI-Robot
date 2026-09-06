@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 危険度に応じて経路（走行中は三角先端）または停止線を描画する。
-/// プレイヤーから 10m 以内のロボットのみ表示する。経路そのものは残り全長。
+/// 表示制限は水平距離 d ≤ D_max（FactoryLayout.DisplayDistanceMax）のみ。
 /// </summary>
 [RequireComponent(typeof(LineRenderer))]
 public class PathRenderer : MonoBehaviour

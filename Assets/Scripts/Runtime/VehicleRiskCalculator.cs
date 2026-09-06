@@ -1,7 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// 単一の動的基準線に対する TTC と危険度スコア。
+/// PTTC（人への閉じ込み）・経路 TTC（視線基準線）・近接距離の重み付き和で危険度を算出する。
+/// 経路表示可否は距離ゲート（d ≤ D_max）のみ。
 /// </summary>
 public class VehicleRiskCalculator : MonoBehaviour
 {
@@ -13,10 +14,16 @@ public class VehicleRiskCalculator : MonoBehaviour
 
     public bool SkipScoring;
 
+    [Header("融合重み（正規化はしない。和が 1 を超えたら clamp）")]
+    [SerializeField] float weightPttc = 0.55f;
+    [SerializeField] float weightPathTtc = 0.30f;
+    [SerializeField] float weightProximity = 0.15f;
+
     const float TTC_MAX = FactoryLayout.EhmiTtcMaxSeconds;
     const float DISPLAY_DISTANCE_MAX = FactoryLayout.DisplayDistanceMax;
     const float GAMMA = 0.6f;
     const float SCORE_FLOOR = 0.08f;
+    const float V_CLOSE_EPS = 0.05f;
 
     public bool IsStopped => agv != null && agv.IsStopped;
 
@@ -36,31 +43,60 @@ public class VehicleRiskCalculator : MonoBehaviour
             return;
         }
 
-        float distToPedestrian = Vector3.Distance(transform.position, crossingLine.transform.position);
-        float ttc = ComputeTTCAlongPath(
-            crossingLine.AxisStart,
-            crossingLine.AxisEnd,
-            crossingLine.LineHalfWidth);
+        Vector3 ped = crossingLine.transform.position;
+        float d = HorizontalDistance(transform.position, ped);
 
-        bool ttcVisible = !float.IsInfinity(ttc) && ttc <= TTC_MAX;
-        bool distanceVisible = distToPedestrian <= DISPLAY_DISTANCE_MAX;
-        isVisible = ttcVisible || distanceVisible;
-
+        // 表示ゲートは距離のみ（T_max はスコア正規化専用）
+        isVisible = d <= DISPLAY_DISTANCE_MAX;
         if (!isVisible)
         {
             currentScore = 0f;
             return;
         }
 
-        float rTtc = float.IsInfinity(ttc)
-            ? 0f
-            : Mathf.Pow(Mathf.Clamp01(1f - ttc / TTC_MAX), GAMMA);
+        float tp = ComputePttc(ped);
+        float tc = ComputeTTCAlongPath(
+            crossingLine.AxisStart,
+            crossingLine.AxisEnd,
+            crossingLine.LineHalfWidth);
 
-        float rProx = distToPedestrian >= DISPLAY_DISTANCE_MAX
+        float rp = TimeToScore(tp);
+        float rc = TimeToScore(tc);
+        float rd = d >= DISPLAY_DISTANCE_MAX
             ? 0f
-            : Mathf.Pow(Mathf.Clamp01(1f - distToPedestrian / DISPLAY_DISTANCE_MAX), GAMMA);
+            : Mathf.Pow(Mathf.Clamp01(1f - d / DISPLAY_DISTANCE_MAX), GAMMA);
 
-        currentScore = Mathf.Max(SCORE_FLOOR, Mathf.Max(rTtc, rProx));
+        float r = weightPttc * rp + weightPathTtc * rc + weightProximity * rd;
+        currentScore = Mathf.Max(SCORE_FLOOR, Mathf.Min(1f, r));
+    }
+
+    static float HorizontalDistance(Vector3 a, Vector3 b)
+    {
+        a.y = 0f;
+        b.y = 0f;
+        return Vector3.Distance(a, b);
+    }
+
+    /// <summary>人への PTTC: d / v_close。近づかないときは ∞。</summary>
+    float ComputePttc(Vector3 pedestrianPos)
+    {
+        Vector3 r = pedestrianPos - transform.position;
+        r.y = 0f;
+        float dist = r.magnitude;
+        if (dist < 1e-4f) return 0f;
+
+        Vector3 v = agv.Velocity;
+        v.y = 0f;
+        float vClose = Vector3.Dot(r.normalized, v);
+        if (vClose < V_CLOSE_EPS) return Mathf.Infinity;
+
+        return dist / vClose;
+    }
+
+    static float TimeToScore(float t)
+    {
+        if (float.IsInfinity(t) || t > TTC_MAX) return 0f;
+        return Mathf.Pow(Mathf.Clamp01(1f - t / TTC_MAX), GAMMA);
     }
 
     float ComputeTTCAlongPath(Vector3 axisStart, Vector3 axisEnd, float halfWidth)
@@ -191,8 +227,8 @@ public class VehicleRiskCalculator : MonoBehaviour
         int best = 0; float bestDist = float.MaxValue;
         for (int i = 0; i < path.Length; i++)
         {
-            float d = Vector3.Distance(pos, path[i]);
-            if (d < bestDist) { bestDist = d; best = i; }
+            float dist = Vector3.Distance(pos, path[i]);
+            if (dist < bestDist) { bestDist = dist; best = i; }
         }
         return best;
     }

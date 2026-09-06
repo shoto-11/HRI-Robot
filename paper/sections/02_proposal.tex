@@ -7,8 +7,8 @@
 
 \begin{enumerate}[leftmargin=2em]
   \item 参加者の視線方向から\textbf{動的基準線}（太線ゾーン）を更新
-  \item AGV残存計画経路と基準線の交差から \textbf{TTC} を算出
-  \item TTCと近接距離から危険度スコア $R \in [0,1]$ を計算
+  \item 人へのPTTC $T_p$，経路--基準線TTC $T_c$，水平距離 $d$ を算出
+  \item 重み付き和で危険度スコア $R \in [0,1]$ を計算（表示は $d\le D_\text{max}$ のみ）
   \item $R$ を色相・彩度・明度・不透明度に変換し，経路（または停止線）を描画
 \end{enumerate}
 
@@ -28,33 +28,24 @@ AGV経路との交差判定に用いる．
 \subsection{危険度スコア $R$}
 
 \paragraph{表示可否}
+表示ゲートは水平距離のみとする（$T_\text{max}$ はスコア正規化専用）．
 \begin{equation}
-  \text{visible} = (T \le T_\text{max}) \vee (d \le D_\text{max})
+  \text{visible} = (d \le D_\text{max})
 \end{equation}
-$T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}$．
-表示距離上限は $(v_\text{AGV,max}+v_\text{ped})\times T_\text{max}=(2.0+1.4)\times4$ から導出する．
+$T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}=(v_\text{AGV,max}+v_\text{ped})\times T_\text{max}$．
 
-\paragraph{TTC}
-AGV残存経路上を速度 $v$ で走行したとき，基準線ゾーンとの最初の交差までの時間：
-\begin{equation}
-  T = \frac{s}{\max(v,\, v_\text{min})}, \quad v_\text{min}=\SI{0.1}{m/s}
-\end{equation}
+\paragraph{三要因}
+人へのPTTC $T_p=d/v_\text{close}$（$v_\text{close}=\max(0,\hat{\mathbf{r}}\cdot\mathbf{v})$；近づかないとき $\infty$），
+経路--基準線TTC $T_c=s/\max(v,0.1)$，水平距離 $d$．
 
-\paragraph{統合}
+\paragraph{統合（重み付き和）}
 \begin{align}
-  R_\text{ttc} &=
-  \begin{cases}
-    0 & T = \infty \\
-    \left(1 - T/T_\text{max}\right)^{\gamma} & 0 \le T \le T_\text{max}
-  \end{cases} \\[4pt]
-  R_\text{prox} &=
-  \begin{cases}
-    0 & d \ge D_\text{max} \\
-    \left(1 - d/D_\text{max}\right)^{\gamma} & d < D_\text{max}
-  \end{cases} \\[4pt]
-  R &= \max(R_\text{ttc},\, R_\text{prox},\, R_\text{floor})
+  R_p &= f(T_p),\quad R_c=f(T_c),\quad
+  R_d=(1-d/D_\text{max})^{\gamma}\ \text{（$d\ge D_\text{max}$ なら $0$）} \\[2pt]
+  f(T) &= (1-T/T_\text{max})^{\gamma}\ \text{（$T=\infty$ または $T>T_\text{max}$ なら $0$）} \\[2pt]
+  R &= \max\!\bigl(R_\text{floor},\, \min(1,\, w_p R_p + w_c R_c + w_d R_d)\bigr)
 \end{align}
-$\gamma=0.6$，$R_\text{floor}=0.08$．
+$\gamma=0.6$，$R_\text{floor}=0.08$，$w_p=0.55$，$w_c=0.30$，$w_d=0.15$．
 
 \subsection{視覚マッピング（Proposedのみ）}
 
@@ -86,7 +77,7 @@ $\gamma=0.6$，$R_\text{floor}=0.08$．
     項目 & Baseline & No-AR & Proposed \\
     \midrule
     経路表示 & あり & なし & あり \\
-    危険度計算 & なし（$R=1$固定） & --- & TTC + 近接 \\
+    危険度計算 & なし（$R=1$固定） & --- & PTTC + 経路TTC + 近接 \\
     色 & 固定青 & --- & HSV連動 \\
     不透明度 & 1.0固定 & --- & 連続（$0.35$–$1.0$） \\
     \bottomrule
@@ -96,7 +87,7 @@ $\gamma=0.6$，$R_\text{floor}=0.08$．
 \subsection{Proposalとしての妥当性}
 
 \paragraph{再現可能性}
-$R$ は TTC，距離，速度から\textbf{決定論的}に算出される．
+$R$ は PTTC，経路TTC，距離，速度から\textbf{決定論的}に算出される．
 被験者や実験者の主観が刺激生成に介入しない．
 
 \paragraph{Baseline / No-AR との分離}
@@ -104,5 +95,6 @@ Proposedだけが $R$ に連動するため，
 \textbf{危険度エンコーディングの効果}を他条件と比較して評価できる．
 
 \paragraph{パラメータの根拠}
-$T_\text{max}$，$D_\text{max}$ は AGV最大速度と歩行速度から導出され，
-「数秒先まで，相対速度で到達しうる距離内」を表示対象とする設計になっている．
+$D_\text{max}$ は表示ゲートと近接スコアの共通上限で，
+$(v_\text{AGV,max}+v_\text{ped})\times T_\text{max}$ から導出する．
+$T_\text{max}$ は時間スコアの正規化専用である．
