@@ -58,14 +58,14 @@ $\gamma=0.6$，$R_\text{floor}=0.08$．
 
 \subsection{視覚マッピング（Proposedのみ）}
 
-色相は連続，不透明度は4段階に量子化する．
+色相・不透明度はともに $R$ に対して連続変化する．
 \begin{align}
   H(R) &= (1-R) \times 180° \quad \text{（青緑$\rightarrow$赤）} \\
   S(R) &= 0.4 + 0.6R, \quad V(R) = 0.5 + 0.3R \\
-  \alpha(R) &\in \{0.35,\, 0.55,\, 0.80,\, 1.00\}
+  \alpha(R) &= 0.35 + 0.65R \quad \text{（半透明$\rightarrow$不透明）}
 \end{align}
 
-危険度が上がると \textbf{青緑・半透明 $\rightarrow$ 赤・不透明} へ変化し，
+危険度が上がると \textbf{青緑・半透明 $\rightarrow$ 赤・不透明} へ連続的に変化し，
 「だんだん危なくなっている」ことが視覚的に伝わる．
 
 \subsection{経路描画}
@@ -88,7 +88,7 @@ $\gamma=0.6$，$R_\text{floor}=0.08$．
     経路表示 & あり & なし & あり \\
     危険度計算 & なし（$R=1$固定） & --- & TTC + 近接 \\
     色 & 固定青 & --- & HSV連動 \\
-    不透明度 & 1.0固定 & --- & 4段階 \\
+    不透明度 & 1.0固定 & --- & 連続（$0.35$–$1.0$） \\
     \bottomrule
   \end{tabular}
 \end{table}

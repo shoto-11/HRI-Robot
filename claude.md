@@ -313,7 +313,7 @@ public class VehicleRiskCalculator : MonoBehaviour
 | $D_{display}$         | 25m                     | eHMI仕様書    |
 | $\gamma$              | 0.6                     | eHMI仕様書    |
 | $R_{floor}$           | 0.08                    | eHMI仕様書    |
-| 不透明度量子化               | 4段階（0.08/0.35/0.65/1.0） | eHMI仕様書    |
+| 不透明度量子化               | 連続（$\alpha = 0.35 + 0.65R$） | 提案手法更新 |
 | 色相                    | 赤(0°)〜薄青緑(180°)         | eHMI仕様書    |
 | 走行中の根元の太さ             | 0.3m                    | eHMI仕様書    |
 | 停止線の全幅                | 1.0m                    | 本実装       |
