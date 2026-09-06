@@ -9,16 +9,23 @@
     html, body { margin: 0; height: 100%; background: #e8e8ec; color: #222;
       font-family: "Segoe UI", Meiryo, sans-serif; }
     #bar { padding: 10px 16px; background: #f7f7fa; border-bottom: 1px solid #ccc;
-      display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; }
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
     #bar h1 { margin: 0; font-size: 16px; font-weight: 600; }
     #bar span { color: #555; font-size: 13px; }
-    #plot { width: 100%; height: calc(100% - 48px); }
+    #bar button {
+      font: inherit; font-size: 13px; padding: 6px 14px; border-radius: 6px;
+      border: 1px solid #888; background: #fff; color: #222; cursor: pointer;
+    }
+    #bar button.active { background: #1f4e79; color: #fff; border-color: #1f4e79; }
+    #bar button:hover { filter: brightness(0.97); }
+    #plot { width: 100%; height: calc(100% - 52px); }
   </style>
 </head>
 <body>
   <div id="bar">
-    <h1>危険度 R の 3D 粒子（ドラッグで回転 / スクロールでズーム）</h1>
-    <span>色＋不透明度 α=0.35+0.65R（低Rほど透ける）　／　R = 0.45·Rp + 0.4·Rc + 0.15·Rd　／　N=<span id="n"></span></span>
+    <h1>危険度 R の 3D 粒子</h1>
+    <button id="btnRotate" type="button" title="カメラを自動回転">▶ 自動回転</button>
+    <span>ドラッグで手動回転 / スクロールでズーム　／　α=0.35+0.65R　／　N=<span id="n"></span></span>
   </div>
   <div id="plot"></div>
   <script>
@@ -100,7 +107,60 @@
       modeBarButtonsToRemove: ['toImage', 'lasso2d', 'select2d'],
     };
 
-    Plotly.newPlot('plot', traces, layout, config);
+    const plot = document.getElementById('plot');
+    const btn = document.getElementById('btnRotate');
+    let rotating = false;
+    let raf = null;
+    let angle = Math.atan2(-1.4, 1.6);
+    let radius = Math.hypot(1.6, -1.4);
+    let eyeZ = 0.9;
+
+    function syncEyeFromCamera() {
+      const cam = plot.layout && plot.layout.scene && plot.layout.scene.camera;
+      if (!cam || !cam.eye) return;
+      angle = Math.atan2(cam.eye.y, cam.eye.x);
+      radius = Math.hypot(cam.eye.x, cam.eye.y) || radius;
+      eyeZ = cam.eye.z;
+    }
+
+    function tick() {
+      if (!rotating) return;
+      angle += 0.008;
+      const eye = {
+        x: radius * Math.cos(angle),
+        y: radius * Math.sin(angle),
+        z: eyeZ,
+      };
+      Plotly.relayout(plot, { 'scene.camera.eye': eye }).then(() => {
+        if (rotating) raf = requestAnimationFrame(tick);
+      });
+    }
+
+    function setRotating(on) {
+      rotating = on;
+      btn.classList.toggle('active', on);
+      btn.textContent = on ? '⏸ 停止' : '▶ 自動回転';
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = null;
+      }
+      if (on) {
+        syncEyeFromCamera();
+        raf = requestAnimationFrame(tick);
+      }
+    }
+
+    btn.addEventListener('click', () => setRotating(!rotating));
+
+    Plotly.newPlot(plot, traces, layout, config).then(() => {
+      // 手動操作中は自動回転を止める
+      plot.on('plotly_relayout', (ev) => {
+        if (!rotating) return;
+        if (ev['scene.camera'] || ev['scene.camera.eye'] || ev['scene.camera.eye.x'] !== undefined) {
+          setRotating(false);
+        }
+      });
+    });
   </script>
 </body>
 </html>
