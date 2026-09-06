@@ -77,7 +77,7 @@ def main(open_browser: bool = True):
 
     examples = dict(
         A=(0.0, 3.0, 180.0),    # toward worker
-        B=(2.5, 3.0, -135.0),   # cross in front
+        B=(3.0, 2.5, -90.0),    # cross in front, pure lateral
         C=(1.0, 0.3, 0.0),      # nearby
     )
     ex_x, ex_y, ex_th, ex_c, ex_s, ex_a, ex_t, ex_names = [], [], [], [], [], [], [], []

@@ -286,7 +286,7 @@ def main():
     # A = approaching the worker, B = crossing in front, C = nearby
     examples = dict(
         A=(0.0, 3.0, 180.0),    # toward worker
-        B=(2.5, 3.0, -135.0),   # cross in front
+        B=(3.0, 2.5, -90.0),    # cross in front, pure lateral
         C=(1.0, 0.3, 0.0),      # nearby
     )
 
