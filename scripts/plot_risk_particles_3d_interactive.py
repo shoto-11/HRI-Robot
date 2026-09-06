@@ -18,6 +18,7 @@ import numpy as np
 from plot_risk_particles_3d import (
     DEFAULT_SPEED,
     D_MAX,
+    W_C,
     W_D,
     W_P,
     build_grid,
@@ -114,6 +115,7 @@ def main(open_browser: bool = True):
         },
         "meta": {
             "wp": W_P,
+            "wc": W_C,
             "wd": W_D,
             "dmax": D_MAX,
             "speed": DEFAULT_SPEED,
@@ -148,7 +150,7 @@ def main(open_browser: bool = True):
   <div id="bar">
     <h1>危険度 R の 3D 粒子</h1>
     <button id="btnRotate" type="button" title="カメラを自動回転">▶ 自動回転</button>
-    <span>R=PTTC+近接（path TTCなし）／ ドラッグで回転・スクロールでズーム　／　α=0.35+0.65R　／　N=<span id="n"></span></span>
+    <span>R=PTTC+横切りpathTTC(s≈|x|/|sinθ|)+近接　／　ドラッグで回転・ズーム　／　α=0.35+0.65R　／　N=<span id="n"></span></span>
   </div>
   <div id="plot"></div>
   <script>

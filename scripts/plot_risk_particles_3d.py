@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Research-style particle scatter: (x, y, θ) with projections and sliced planes.
-3D graphs use PTTC + proximity only (no path-TTC proxy).
-Unity still uses PTTC + path TTC + proximity.
+3D graphs use PTTC + lateral-crossing path TTC (s≈|x|/|sinθ|) + proximity.
+Front-approach path proxy s≈y/|cosθ| is NOT used (Unity still uses full path TTC).
 Point color and opacity match RiskToVisualMapper (HSV + α=0.35+0.65R).
 Requires: pip install numpy matplotlib
 """
@@ -12,9 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 T_MAX, D_MAX, GAMMA = 4.0, 13.6, 0.6
-# Graph-only weights (path TTC omitted). Renormalized in score_from_times.
-W_P, W_D = 0.55, 0.15
-W_C = 0.0  # unused in 3D graphs
+W_P, W_C, W_D = 0.55, 0.30, 0.15
 SCORE_FLOOR = 0.08
 V_CLOSE_EPS = 0.05
 DEFAULT_SPEED = 2.0
@@ -37,14 +35,14 @@ def time_to_score(t: float) -> float:
     return max(0.0, 1.0 - t / T_MAX) ** GAMMA
 
 
-def score_from_times(d: float, tp: float, tc: float = np.inf) -> float:
-    """Display gate: d ≤ D_max. Graph R = renormalized (wp·Rp + wd·Rd). Path TTC ignored."""
+def score_from_times(d: float, tp: float, tc: float) -> float:
+    """Display gate: d ≤ D_max. R = wp·Rp + wc·Rc + wd·Rd."""
     if d > D_MAX:
         return 0.0
     rp = time_to_score(tp)
+    rc = time_to_score(tc)
     rd = 0.0 if d >= D_MAX else max(0.0, 1.0 - d / D_MAX) ** GAMMA
-    denom = W_P + W_D
-    r = (W_P * rp + W_D * rd) / denom if denom > 0 else 0.0
+    r = W_P * rp + W_C * rc + W_D * rd
     return max(SCORE_FLOOR, min(1.0, r))
 
 
@@ -68,10 +66,26 @@ def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
     return t
 
 
+def estimate_path_ttc(x, y, theta, speed=DEFAULT_SPEED):
+    """Lateral-crossing path-TTC only: s≈|x|/|sinθ|, Tc=s/v.
+    Gated near gaze baseline (|y|<3) and heading toward x=0.
+    Front-approach y/|cosθ| is intentionally omitted from 3D graphs.
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    theta = np.asarray(theta, dtype=float)
+    sin_th = np.sin(np.deg2rad(theta))
+    t = np.full(np.shape(x), np.inf, dtype=float)
+    cross = (np.abs(y) < 3.0) & (np.abs(sin_th) > 0.35) & (x * sin_th < 0)
+    t[cross] = np.abs(x[cross]) / (np.abs(sin_th[cross]) * speed)
+    return np.clip(t, 0.0, 8.0)
+
+
 def score_pose(x, y, theta, speed=DEFAULT_SPEED) -> float:
     d = float(np.hypot(x, y))
     tp = float(estimate_pttc(x, y, theta, speed))
-    return score_from_times(d, tp)
+    tc = float(estimate_path_ttc(x, y, theta, speed))
+    return score_from_times(d, tp, tc)
 
 
 def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
@@ -85,7 +99,8 @@ def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
     theta = tt.ravel()
     d = np.hypot(x, y)
     tp = estimate_pttc(x, y, theta)
-    R = np.array([score_from_times(di, tpi) for di, tpi in zip(d, tp)])
+    tc = estimate_path_ttc(x, y, theta)
+    R = np.array([score_from_times(di, tpi, tci) for di, tpi, tci in zip(d, tp, tc)])
     keep = R > 0
     return x[keep], y[keep], theta[keep], R[keep]
 
@@ -171,7 +186,7 @@ def save_theta_slices(x, y, theta, colors, examples):
         ax.set_ylim(-15.5, 15.5)
         ax.set_aspect("equal", adjustable="box")
     fig.suptitle(
-        "Pose space sliced by heading θ (θ=0 = +Y) — R from PTTC + proximity (no path TTC)",
+        "Pose space sliced by heading θ — R = PTTC + cross pathTTC (s≈|x|/|sinθ|) + prox",
         fontsize=12,
     )
     fig.tight_layout()
@@ -279,7 +294,7 @@ def main():
     x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
     colors = np.array([risk_color(r) for r in R])
     print(f"grid points kept: {len(x)} (Δx=1m, Δy=1m, Δθ=15°; θ=0 is +Y)")
-    print(f"weights: wp={W_P}, wd={W_D} (path TTC omitted); visible iff d<={D_MAX}")
+    print(f"weights: wp={W_P}, wc={W_C}, wd={W_D}; path TTC=cross only s~|x|/|sin(theta)|; d<={D_MAX}")
 
     # ---- 3D ----
     fig3d = plt.figure(figsize=(8.5, 6.5), dpi=150)
@@ -292,7 +307,7 @@ def main():
     ax3d.set_xlabel("x (m)  lateral")
     ax3d.set_ylabel("y (m)  forward")
     ax3d.set_zlabel("θ (deg) heading")
-    ax3d.set_title("3D: PTTC + proximity only (no path-TTC proxy)")
+    ax3d.set_title("3D: PTTC + cross pathTTC (s≈|x|/|sinθ|) + proximity")
     ax3d.view_init(elev=22, azim=-58)
     fig3d.tight_layout()
     save_fig(fig3d, "risk_particles_3d")
@@ -333,7 +348,7 @@ def main():
     plot_projection(ax_xz, x, theta, colors, examples, "x", "theta", "x (m)", "θ (°)", "xz")
 
     figp.suptitle(
-        "AGV pose grid by R (PTTC + proximity; no path-TTC proxy)",
+        "AGV pose grid by R (PTTC + cross pathTTC s≈|x|/|sinθ| + proximity)",
         fontsize=12,
     )
     figp.tight_layout()
