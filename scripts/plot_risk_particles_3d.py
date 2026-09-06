@@ -125,7 +125,7 @@ def save_fig(fig, stem: str):
 
 def save_theta_slices(x, y, theta, colors, examples):
     """xy planes at representative headings."""
-    slice_thetas = [-90, -45, 0, 45, 90, 180]
+    slice_thetas = [-90, -60, 0, 60, 90, 180]
     fig, axes = plt.subplots(2, 3, figsize=(12, 8), dpi=150, sharex=True, sharey=True)
     for ax, th0 in zip(axes.ravel(), slice_thetas):
         m = np.isclose(theta, th0)
