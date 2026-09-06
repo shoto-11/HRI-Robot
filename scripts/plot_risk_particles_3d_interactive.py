@@ -214,10 +214,10 @@ def main(open_browser: bool = True):
       scene: {{
         bgcolor: '#f4f4f8',
         xaxis: {{ title: 'x (m) lateral', color: '#333', gridcolor: '#ccc', range: [-15, 15] }},
-        yaxis: {{ title: 'y (m) forward', color: '#333', gridcolor: '#ccc', range: [0, 14] }},
+        yaxis: {{ title: 'y (m) forward', color: '#333', gridcolor: '#ccc', range: [-15, 15] }},
         zaxis: {{ title: 'θ (deg)', color: '#333', gridcolor: '#ccc', range: [-180, 180] }},
         aspectmode: 'manual',
-        aspectratio: {{ x: 1.2, y: 1.0, z: 1.0 }},
+        aspectratio: {{ x: 1.0, y: 1.0, z: 1.0 }},
         camera: {{
           eye: {{ x: 1.6, y: -1.4, z: 0.9 }},
           up: {{ x: 0, y: 0, z: 1 }},

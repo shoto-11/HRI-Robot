@@ -90,8 +90,8 @@ def score_pose(x, y, theta, speed=DEFAULT_SPEED) -> float:
 
 def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
     """Evenly spaced lattice in (x, y, θ)."""
-    xs = np.arange(-14.0, 14.0 + 1e-9, dx)
-    ys = np.arange(0.0, 14.0 + 1e-9, dy)
+    xs = np.arange(-15.0, 15.0 + 1e-9, dx)
+    ys = np.arange(-15.0, 15.0 + 1e-9, dy)
     thetas = np.arange(-180.0, 180.0 + 1e-9, dtheta)
     xx, yy, tt = np.meshgrid(xs, ys, thetas, indexing="xy")
     x = xx.ravel()
@@ -182,8 +182,8 @@ def save_theta_slices(x, y, theta, colors, examples):
             f"θ = {th0}°  (xy slice)",
             examples_on_theta_slice(examples, th0),
         )
-        ax.set_xlim(-15, 15)
-        ax.set_ylim(-0.5, 14.5)
+        ax.set_xlim(-15.5, 15.5)
+        ax.set_ylim(-15.5, 15.5)
         ax.set_aspect("equal", adjustable="box")
     fig.suptitle(
         "Pose space sliced by heading θ (θ=0 = +Y) — R = 0.55Rp+0.30Rc+0.15Rd",
@@ -196,8 +196,8 @@ def save_theta_slices(x, y, theta, colors, examples):
 
 def save_y_slices(x, y, theta, colors, examples):
     """xz planes at representative forward distances."""
-    slice_ys = [1, 3, 6, 10]
-    fig, axes = plt.subplots(2, 2, figsize=(10, 8), dpi=150, sharex=True, sharey=True)
+    slice_ys = [-10, -5, 0, 5, 10]
+    fig, axes = plt.subplots(2, 3, figsize=(12, 8), dpi=150, sharex=True, sharey=True)
     for ax, y0 in zip(axes.ravel(), slice_ys):
         m = np.isclose(y, float(y0))
         plot_slice_scatter(
@@ -210,8 +210,12 @@ def save_y_slices(x, y, theta, colors, examples):
             f"y = {y0} m  (xz slice)",
             examples_on_y_slice(examples, y0),
         )
-        ax.set_xlim(-15, 15)
+        ax.set_xlim(-15.5, 15.5)
         ax.set_ylim(-190, 190)
+    # hide unused last axis if any
+    if len(slice_ys) < axes.size:
+        for ax in axes.ravel()[len(slice_ys):]:
+            ax.set_visible(False)
     fig.suptitle("Pose space sliced by forward distance y — each panel is one xz plane", fontsize=12)
     fig.tight_layout()
     save_fig(fig, "risk_particles_slices_y")
@@ -234,7 +238,7 @@ def save_x_slices(x, y, theta, colors, examples):
             f"x = {x0} m  (yz slice)",
             examples_on_x_slice(examples, x0),
         )
-        ax.set_xlim(-0.5, 14.5)
+        ax.set_xlim(-15.5, 15.5)
         ax.set_ylim(-190, 190)
     fig.suptitle("Pose space sliced by lateral position x — each panel is one yz plane", fontsize=12)
     fig.tight_layout()
@@ -252,8 +256,8 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
         m = np.isclose(theta, th0)
         ax.scatter(x[m], y[m], theta[m], c=colors[m], s=14, linewidths=0, depthshade=False)
 
-    xx = np.linspace(-14, 14, 8)
-    yy = np.linspace(0, 14, 8)
+    xx = np.linspace(-15, 15, 8)
+    yy = np.linspace(-15, 15, 8)
     XX, YY = np.meshgrid(xx, yy)
     for th0, alpha in [(0, 0.12), (180, 0.10), (-90, 0.08)]:
         ZZ = np.full_like(XX, th0)
