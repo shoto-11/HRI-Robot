@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Research-style particle scatter: (x, y, θ) with projections and sliced planes.
 Risk R matches VehicleRiskCalculator (PTTC + path TTC + proximity weighted sum).
-Point colors match RiskToVisualMapper (HSV).
+Point color and opacity match RiskToVisualMapper (HSV + α=0.35+0.65R).
 Requires: pip install numpy matplotlib
 """
 import colorsys
@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 T_MAX, D_MAX, GAMMA = 4.0, 13.6, 0.6
-W_P, W_C, W_D = 0.55, 0.30, 0.15
+W_P, W_C, W_D = 0.45, 0.40, 0.15
 SCORE_FLOOR = 0.08
 V_CLOSE_EPS = 0.05
-DEFAULT_SPEED = 1.2
+DEFAULT_SPEED = 2.0
 OUT_DIR = Path(__file__).resolve().parent.parent / "paper" / "google-slides"
 
 
@@ -246,7 +246,7 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
     """3D view with a few highlighted cutting planes (θ)."""
     fig = plt.figure(figsize=(9, 7), dpi=150)
     ax = fig.add_subplot(111, projection="3d")
-    ax.scatter(x, y, theta, c=colors, s=3, linewidths=0, depthshade=False, rasterized=True, alpha=0.25)
+    ax.scatter(x, y, theta, c=colors, s=3, linewidths=0, depthshade=False, rasterized=True)
 
     for th0 in (-90, 0, 180):
         m = np.isclose(theta, th0)
@@ -303,7 +303,7 @@ def main():
     ax3d.set_xlabel("x (m)  lateral")
     ax3d.set_ylabel("y (m)  forward")
     ax3d.set_zlabel("θ (deg) heading")
-    ax3d.set_title("3D: R = 0.55 Rp + 0.30 Rc + 0.15 Rd (θ=0 = +Y)")
+    ax3d.set_title("3D: color+α from RiskToVisualMapper (R=0.55Rp+0.30Rc+0.15Rd)")
     ax3d.view_init(elev=22, azim=-58)
     fig3d.tight_layout()
     save_fig(fig3d, "risk_particles_3d")

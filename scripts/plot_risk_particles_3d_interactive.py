@@ -32,9 +32,17 @@ def rgba_css(rgba) -> str:
     return f"rgba({int(r * 255)},{int(g * 255)},{int(b * 255)},{a:.3f})"
 
 
+def rgb_css(rgba) -> str:
+    r, g, b, _a = rgba
+    return f"rgb({int(r * 255)},{int(g * 255)},{int(b * 255)})"
+
+
 def main(open_browser: bool = True):
     x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
-    colors = [rgba_css(risk_color(r)) for r in R]
+    rgba = [risk_color(r) for r in R]
+    colors = [rgb_css(c) for c in rgba]
+    # RiskToVisualMapper: α = 0.35 + 0.65 R
+    alphas = [float(c[3]) for c in rgba]
 
     examples = dict(
         A=(0.0, 10.0, 180.0),
@@ -46,18 +54,22 @@ def main(open_browser: bool = True):
         G2=(5.5, 6.0, -135.0),
         H=(-11.0, 2.0, 90.0),
     )
-    ex_x, ex_y, ex_th, ex_R, ex_c, ex_t = [], [], [], [], [], []
+    ex_x, ex_y, ex_th, ex_R, ex_c, ex_a, ex_t = [], [], [], [], [], [], []
     for name, (xi, yi, thi) in examples.items():
         Ri = score_pose(xi, yi, thi)
+        col = risk_color(Ri)
         ex_x.append(xi)
         ex_y.append(yi)
         ex_th.append(thi)
         ex_R.append(Ri)
-        ex_c.append(rgba_css(risk_color(Ri)))
-        ex_t.append(f"{name}<br>R={Ri:.2f}<br>(x,y,θ)=({xi:g},{yi:g},{thi:g})")
+        ex_c.append(rgb_css(col))
+        ex_a.append(float(col[3]))
+        ex_t.append(
+            f"{name}<br>R={Ri:.2f}<br>α={col[3]:.2f}<br>(x,y,θ)=({xi:g},{yi:g},{thi:g})"
+        )
 
     hover = [
-        f"R={ri:.2f}<br>x={xi:.0f} m<br>y={yi:.0f} m<br>θ={thi:.0f}°"
+        f"R={ri:.2f}<br>α={0.35 + 0.65 * ri:.2f}<br>x={xi:.0f} m<br>y={yi:.0f} m<br>θ={thi:.0f}°"
         for xi, yi, thi, ri in zip(x, y, theta, R)
     ]
 
@@ -67,6 +79,7 @@ def main(open_browser: bool = True):
         "theta": theta.tolist(),
         "R": R.tolist(),
         "colors": colors,
+        "alphas": alphas,
         "hover": hover,
         "ex": {
             "x": ex_x,
@@ -74,6 +87,7 @@ def main(open_browser: bool = True):
             "theta": ex_th,
             "R": ex_R,
             "colors": ex_c,
+            "alphas": ex_a,
             "text": ex_t,
             "names": list(examples.keys()),
         },
@@ -107,7 +121,7 @@ def main(open_browser: bool = True):
 <body>
   <div id="bar">
     <h1>危険度 R の 3D 粒子（ドラッグで回転 / スクロールでズーム）</h1>
-    <span>R = {W_P}·Rp + {W_C}·Rc + {W_D}·Rd　／　表示 d≤{D_MAX} m　／　θ=0 = +Y　／　N=<span id="n"></span></span>
+    <span>色・不透明度とも RiskToVisualMapper（α=0.35+0.65R）　／　R = {W_P}·Rp + {W_C}·Rc + {W_D}·Rd　／　N=<span id="n"></span></span>
   </div>
   <div id="plot"></div>
   <script>
@@ -124,9 +138,9 @@ def main(open_browser: bool = True):
       text: DATA.hover,
       hoverinfo: 'text',
       marker: {{
-        size: 2.5,
+        size: 2.8,
         color: DATA.colors,
-        opacity: 0.85,
+        opacity: DATA.alphas,
       }},
     }};
 
@@ -143,8 +157,9 @@ def main(open_browser: bool = True):
       hovertext: DATA.ex.text,
       hoverinfo: 'text',
       marker: {{
-        size: 8,
+        size: 9,
         color: DATA.ex.colors,
+        opacity: DATA.ex.alphas,
         line: {{ width: 1, color: '#111' }},
       }},
     }};
