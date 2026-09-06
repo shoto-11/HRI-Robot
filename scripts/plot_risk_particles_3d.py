@@ -67,18 +67,14 @@ def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
 
 
 def estimate_path_ttc(x, y, theta, speed=DEFAULT_SPEED):
-    """Lateral-crossing path-TTC only: s≈|x|/|sinθ|, Tc=s/v.
-    Gated near gaze baseline (|y|<3) and heading toward x=0.
-    Front-approach y/|cosθ| is intentionally omitted from 3D graphs.
-    """
+    """Lateral-crossing path-TTC: s≈|x|/|sinθ|, Tc=s/v. No |y| / approach gates."""
     x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
     theta = np.asarray(theta, dtype=float)
     sin_th = np.sin(np.deg2rad(theta))
     t = np.full(np.shape(x), np.inf, dtype=float)
-    cross = (np.abs(y) < 3.0) & (np.abs(sin_th) > 0.35) & (x * sin_th < 0)
-    t[cross] = np.abs(x[cross]) / (np.abs(sin_th[cross]) * speed)
-    return np.clip(t, 0.0, 8.0)
+    ok = np.abs(sin_th) > 1e-6
+    t[ok] = np.abs(x[ok]) / (np.abs(sin_th[ok]) * speed)
+    return t
 
 
 def score_pose(x, y, theta, speed=DEFAULT_SPEED) -> float:
