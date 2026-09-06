@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Research-style particle scatter: (x, y, θ) with 3D + xy / yz / xz projections.
+"""Research-style particle scatter: (x, y, θ) with projections and sliced planes.
 Point colors match RiskToVisualMapper (HSV).
 Requires: pip install numpy matplotlib
 """
@@ -38,7 +38,6 @@ def estimate_ttc(x, y, theta, speed=1.2):
     t = np.full(np.shape(x), np.inf, dtype=float)
     approach = (y > 0.05) & (move_y < -0.05)
     t[approach] = y[approach] / (np.abs(move_y[approach]) * speed)
-    # near baseline, lateral crossing toward x=0
     cross = (~approach) & (np.abs(y) < 3.0) & (np.abs(move_x) > 0.35) & (x * move_x < 0)
     t[cross] = np.abs(x[cross]) / (np.abs(move_x[cross]) * speed)
     return np.clip(t, 0.0, 8.0)
@@ -61,7 +60,6 @@ def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
 
 
 def plot_projection(ax, u, v, colors, examples, u_key, v_key, xlabel, ylabel, title):
-    """2D orthographic projection of the particle cloud."""
     ax.scatter(u, v, c=colors, s=10, linewidths=0, rasterized=True, zorder=1)
     for name, (xi, yi, thi, ti) in examples.items():
         Ri = score(np.hypot(xi, yi), ti)
@@ -76,6 +74,45 @@ def plot_projection(ax, u, v, colors, examples, u_key, v_key, xlabel, ylabel, ti
     ax.grid(True, alpha=0.25, linewidth=0.5)
 
 
+def plot_slice_scatter(ax, u, v, colors, xlabel, ylabel, title, examples_uv=None):
+    ax.scatter(u, v, c=colors, s=18, linewidths=0, rasterized=True, zorder=1)
+    if examples_uv:
+        for name, uu, vv, rgba in examples_uv:
+            ax.scatter([uu], [vv], c=[rgba], s=70, edgecolors="k", linewidths=0.6, zorder=3)
+            ax.text(uu, vv, f"  {name}", fontsize=8, zorder=4)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title, fontsize=10)
+    ax.grid(True, alpha=0.25, linewidth=0.5)
+
+
+def examples_on_theta_slice(examples, theta0, atol=1.0):
+    out = []
+    for name, (xi, yi, thi, ti) in examples.items():
+        if abs(thi - theta0) <= atol or abs(abs(thi - theta0) - 360) <= atol:
+            Ri = score(np.hypot(xi, yi), ti)
+            out.append((name, xi, yi, risk_color(Ri)))
+    return out
+
+
+def examples_on_y_slice(examples, y0, atol=0.6):
+    out = []
+    for name, (xi, yi, thi, ti) in examples.items():
+        if abs(yi - y0) <= atol:
+            Ri = score(np.hypot(xi, yi), ti)
+            out.append((name, xi, thi, risk_color(Ri)))
+    return out
+
+
+def examples_on_x_slice(examples, x0, atol=0.6):
+    out = []
+    for name, (xi, yi, thi, ti) in examples.items():
+        if abs(xi - x0) <= atol:
+            Ri = score(np.hypot(xi, yi), ti)
+            out.append((name, yi, thi, risk_color(Ri)))
+    return out
+
+
 def save_fig(fig, stem: str):
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     pdf = OUT_DIR / f"{stem}.pdf"
@@ -84,6 +121,111 @@ def save_fig(fig, stem: str):
     fig.savefig(png, dpi=200, bbox_inches="tight")
     print(f"wrote {pdf}")
     print(f"wrote {png}")
+
+
+def save_theta_slices(x, y, theta, colors, examples):
+    """xy planes at representative headings."""
+    slice_thetas = [-90, -45, 0, 45, 90, 180]
+    fig, axes = plt.subplots(2, 3, figsize=(12, 8), dpi=150, sharex=True, sharey=True)
+    for ax, th0 in zip(axes.ravel(), slice_thetas):
+        m = np.isclose(theta, th0)
+        plot_slice_scatter(
+            ax,
+            x[m],
+            y[m],
+            colors[m],
+            "x (m)",
+            "y (m)",
+            f"θ = {th0}°  (xy slice)",
+            examples_on_theta_slice(examples, th0),
+        )
+        ax.set_xlim(-15, 15)
+        ax.set_ylim(-0.5, 14.5)
+        ax.set_aspect("equal", adjustable="box")
+    fig.suptitle("Pose space sliced by heading θ — each panel is one xy plane", fontsize=12)
+    fig.tight_layout()
+    save_fig(fig, "risk_particles_slices_theta")
+    plt.close(fig)
+
+
+def save_y_slices(x, y, theta, colors, examples):
+    """xz planes at representative forward distances."""
+    slice_ys = [1, 3, 6, 10]
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8), dpi=150, sharex=True, sharey=True)
+    for ax, y0 in zip(axes.ravel(), slice_ys):
+        m = np.isclose(y, float(y0))
+        plot_slice_scatter(
+            ax,
+            x[m],
+            theta[m],
+            colors[m],
+            "x (m)",
+            "θ (°)",
+            f"y = {y0} m  (xz slice)",
+            examples_on_y_slice(examples, y0),
+        )
+        ax.set_xlim(-15, 15)
+        ax.set_ylim(-190, 190)
+    fig.suptitle("Pose space sliced by forward distance y — each panel is one xz plane", fontsize=12)
+    fig.tight_layout()
+    save_fig(fig, "risk_particles_slices_y")
+    plt.close(fig)
+
+
+def save_x_slices(x, y, theta, colors, examples):
+    """yz planes at representative lateral positions."""
+    slice_xs = [-6, 0, 6]
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4.5), dpi=150, sharex=True, sharey=True)
+    for ax, x0 in zip(axes.ravel(), slice_xs):
+        m = np.isclose(x, float(x0))
+        plot_slice_scatter(
+            ax,
+            y[m],
+            theta[m],
+            colors[m],
+            "y (m)",
+            "θ (°)",
+            f"x = {x0} m  (yz slice)",
+            examples_on_x_slice(examples, x0),
+        )
+        ax.set_xlim(-0.5, 14.5)
+        ax.set_ylim(-190, 190)
+    fig.suptitle("Pose space sliced by lateral position x — each panel is one yz plane", fontsize=12)
+    fig.tight_layout()
+    save_fig(fig, "risk_particles_slices_x")
+    plt.close(fig)
+
+
+def save_slice_overview_3d(x, y, theta, colors, examples):
+    """3D view with a few highlighted cutting planes (θ)."""
+    fig = plt.figure(figsize=(9, 7), dpi=150)
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(x, y, theta, c=colors, s=3, linewidths=0, depthshade=False, rasterized=True, alpha=0.25)
+
+    for th0 in (-90, 0, 90):
+        m = np.isclose(theta, th0)
+        ax.scatter(x[m], y[m], theta[m], c=colors[m], s=14, linewidths=0, depthshade=False)
+
+    xx = np.linspace(-14, 14, 8)
+    yy = np.linspace(0, 14, 8)
+    XX, YY = np.meshgrid(xx, yy)
+    for th0, alpha in [(0, 0.12), (90, 0.08), (-90, 0.08)]:
+        ZZ = np.full_like(XX, th0)
+        ax.plot_surface(XX, YY, ZZ, color="gray", alpha=alpha, linewidth=0, antialiased=False)
+
+    for name, (xi, yi, thi, ti) in examples.items():
+        Ri = score(np.hypot(xi, yi), ti)
+        ax.scatter([xi], [yi], [thi], c=[risk_color(Ri)], s=70, edgecolors="k", linewidths=0.5)
+        ax.text(xi, yi, thi, f" {name}", fontsize=7)
+
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
+    ax.set_zlabel("θ (°)")
+    ax.set_title("3D with slice planes at θ = −90°, 0°, 90°")
+    ax.view_init(elev=22, azim=-58)
+    fig.tight_layout()
+    save_fig(fig, "risk_particles_slices_3d_planes")
+    plt.close(fig)
 
 
 def main():
@@ -117,8 +259,9 @@ def main():
     ax3d.view_init(elev=22, azim=-58)
     fig3d.tight_layout()
     save_fig(fig3d, "risk_particles_3d")
+    plt.close(fig3d)
 
-    # ---- three orthographic projections (separate files) ----
+    # ---- orthographic projections ----
     projections = [
         ("risk_particles_xy", x, y, "x", "y", "x (m) lateral", "y (m) forward", "Projection: xy plane (uniform grid)"),
         ("risk_particles_yz", y, theta, "y", "theta", "y (m) forward", "θ (deg) heading", "Projection: yz plane (uniform grid)"),
@@ -131,7 +274,7 @@ def main():
         save_fig(fig, stem)
         plt.close(fig)
 
-    # ---- 2×2 panel (3D + xy / yz / xz) for slides ----
+    # ---- 2×2 panel ----
     figp = plt.figure(figsize=(11, 9), dpi=150)
     ax0 = figp.add_subplot(2, 2, 1, projection="3d")
     ax0.scatter(x, y, theta, c=colors, s=6, linewidths=0, depthshade=False, rasterized=True)
@@ -158,8 +301,14 @@ def main():
     )
     figp.tight_layout()
     save_fig(figp, "risk_particles_projections_panel")
-    plt.close(fig3d)
     plt.close(figp)
+
+    # ---- sliced planes at representative positions ----
+    save_theta_slices(x, y, theta, colors, examples)
+    save_y_slices(x, y, theta, colors, examples)
+    save_x_slices(x, y, theta, colors, examples)
+    save_slice_overview_3d(x, y, theta, colors, examples)
+
 
 if __name__ == "__main__":
     main()
