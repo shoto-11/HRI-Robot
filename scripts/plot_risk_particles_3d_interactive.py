@@ -236,27 +236,39 @@ def main(open_browser: bool = True):
     const btn = document.getElementById('btnRotate');
     let rotating = false;
     let raf = null;
+    let programmatic = false;
     let angle = Math.atan2(-1.4, 1.6);
     let radius = Math.hypot(1.6, -1.4);
     let eyeZ = 0.9;
+    const DEG_PER_SEC = 28; // continuous orbit speed
 
     function syncEyeFromCamera() {{
       const cam = plot.layout && plot.layout.scene && plot.layout.scene.camera;
       if (!cam || !cam.eye) return;
-      angle = Math.atan2(cam.eye.y, cam.eye.x);
-      radius = Math.hypot(cam.eye.x, cam.eye.y) || radius;
-      eyeZ = cam.eye.z;
+      const ex = cam.eye.x, ey = cam.eye.y;
+      const r = Math.hypot(ex, ey);
+      if (r > 0.05) {{
+        angle = Math.atan2(ey, ex);
+        radius = r;
+      }}
+      if (typeof cam.eye.z === 'number') eyeZ = cam.eye.z;
     }}
 
-    function tick() {{
+    let lastTs = 0;
+    function tick(ts) {{
       if (!rotating) return;
-      angle += 0.008;
+      if (!lastTs) lastTs = ts;
+      const dt = Math.min(0.05, (ts - lastTs) / 1000);
+      lastTs = ts;
+      angle += (DEG_PER_SEC * Math.PI / 180) * dt;
       const eye = {{
         x: radius * Math.cos(angle),
         y: radius * Math.sin(angle),
         z: eyeZ,
       }};
-      Plotly.relayout(plot, {{ 'scene.camera.eye': eye }}).then(() => {{
+      programmatic = true;
+      Plotly.relayout(plot, {{ 'scene.camera.eye': eye }}).finally(() => {{
+        programmatic = false;
         if (rotating) raf = requestAnimationFrame(tick);
       }});
     }}
@@ -269,6 +281,7 @@ def main(open_browser: bool = True):
         cancelAnimationFrame(raf);
         raf = null;
       }}
+      lastTs = 0;
       if (on) {{
         syncEyeFromCamera();
         raf = requestAnimationFrame(tick);
@@ -278,13 +291,18 @@ def main(open_browser: bool = True):
     btn.addEventListener('click', () => setRotating(!rotating));
 
     Plotly.newPlot(plot, traces, layout, config).then(() => {{
-      // 手動操作中は自動回転を止める
-      plot.on('plotly_relayout', (ev) => {{
-        if (!rotating) return;
-        if (ev['scene.camera'] || ev['scene.camera.eye'] || ev['scene.camera.eye.x'] !== undefined) {{
-          setRotating(false);
-        }}
+      // 自分の自動回転による relayout は無視。ユーザー操作だけ停止。
+      plot.on('plotly_relayout', () => {{
+        if (programmatic || !rotating) return;
+        setRotating(false);
       }});
+      // WebGL drag 開始でも確実に止める
+      plot.addEventListener('pointerdown', (e) => {{
+        if (!rotating) return;
+        if (e.target && e.target.closest && e.target.closest('.modebar')) return;
+        if (e.target === btn) return;
+        setRotating(false);
+      }}, true);
     }});
   </script>
 </body>
