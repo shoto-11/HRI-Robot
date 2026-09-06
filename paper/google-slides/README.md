@@ -4,25 +4,27 @@
 
 | ファイル | 用途 |
 |----------|------|
-| **`risk_appearance.pptx`** | PowerPoint（16:9、全7枚） |
-| **`risk_appearance.pdf`** | PDF（同じ内容） |
-| `risk_appearance_slide_16x9.png` | 1枚画像（Google スライドにも可） |
+| **`risk_formula_slide.pptx`** | **計算式1枚まとめ**（おすすめ） |
+| **`risk_formula_slide.pdf`** | 計算式1枚（PDF） |
+| `risk_formula_slide_16x9.png` | 計算式1枚（画像） |
+| `risk_appearance.pptx` | 見た目サンプル（全7枚） |
+| `risk_appearance.pdf` | 見た目サンプル（PDF） |
+| `risk_appearance_slide_16x9.png` | 見た目一覧1枚 |
 | `risk_R_*.png` | Rごと個別画像 |
 
-## PowerPoint / PDF の中身
+## 計算式スライドの内容
 
-1. 一覧スライド（色＋不透明度の見た目）
-2. 数値表＋カラーチップ
-3. R=0 / 0.25 / 0.5 / 0.75 / 1 の個別スライド
+表示可否 → TTC → 近接 → 統合 R → 色・不透明度（連続）→ パラメータ
 
 ## Google スライドへ
 
-- **方法A**: `risk_appearance.pptx` を Drive にアップロード → 右クリックで Google スライドで開く  
-- **方法B**: PDF をアップロードして挿入、または PNG を画像として挿入
+- PPTX を Drive に上げて「Google スライドで開く」
+- または PNG / PDF を挿入
 
 ## 再生成
 
 ```bash
 python paper/google-slides/export_risk_swatches.py
 python paper/google-slides/export_pptx_pdf.py
+python paper/google-slides/export_risk_formula_slide.py
 ```
