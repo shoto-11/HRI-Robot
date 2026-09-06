@@ -2,6 +2,9 @@
 """Interactive 3D risk particle viewer (drag to rotate, scroll to zoom).
 
 Writes a self-contained HTML (Plotly CDN) — open in any browser.
+Per-point transparency: Plotly scatter3d rejects opacity arrays, so points are
+split into α-bins (each trace has a scalar opacity = RiskToVisualMapper α).
+
 Requires: pip install numpy
 """
 from __future__ import annotations
@@ -26,10 +29,13 @@ from plot_risk_particles_3d import (
 OUT_DIR = Path(__file__).resolve().parent.parent / "paper" / "google-slides"
 OUT_HTML = OUT_DIR / "risk_particles_3d_interactive.html"
 
-
-def rgba_css(rgba) -> str:
-    r, g, b, a = rgba
-    return f"rgba({int(r * 255)},{int(g * 255)},{int(b * 255)},{a:.3f})"
+# RiskToVisualMapper α bins (scalar opacity per trace — required for scatter3d)
+ALPHA_BINS = [
+    (0.00, 0.25, 0.35 + 0.65 * 0.125),  # low R
+    (0.25, 0.50, 0.35 + 0.65 * 0.375),
+    (0.50, 0.75, 0.35 + 0.65 * 0.625),
+    (0.75, 1.01, 0.35 + 0.65 * 0.875),  # high R → nearly opaque
+]
 
 
 def rgb_css(rgba) -> str:
@@ -39,10 +45,35 @@ def rgb_css(rgba) -> str:
 
 def main(open_browser: bool = True):
     x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
-    rgba = [risk_color(r) for r in R]
-    colors = [rgb_css(c) for c in rgba]
-    # RiskToVisualMapper: α = 0.35 + 0.65 R
-    alphas = [float(c[3]) for c in rgba]
+    x = np.asarray(x)
+    y = np.asarray(y)
+    theta = np.asarray(theta)
+    R = np.asarray(R)
+
+    bins = []
+    for r0, r1, alpha in ALPHA_BINS:
+        m = (R >= r0) & (R < r1)
+        if not np.any(m):
+            continue
+        xi, yi, thi, ri = x[m], y[m], theta[m], R[m]
+        colors = [rgb_css(risk_color(float(r))) for r in ri]
+        sizes = (2.0 + 4.0 * ri).tolist()
+        hover = [
+            f"R={rj:.2f}<br>α≈{alpha:.2f}<br>x={xj:.0f} m<br>y={yj:.0f} m<br>θ={tj:.0f}°"
+            for xj, yj, tj, rj in zip(xi, yi, thi, ri)
+        ]
+        bins.append(
+            {
+                "name": f"R {r0:.2f}–{min(r1, 1):.2f} (α≈{alpha:.2f})",
+                "x": xi.tolist(),
+                "y": yi.tolist(),
+                "theta": thi.tolist(),
+                "colors": colors,
+                "sizes": sizes,
+                "opacity": float(alpha),
+                "hover": hover,
+            }
+        )
 
     examples = dict(
         A=(0.0, 10.0, 180.0),
@@ -54,42 +85,33 @@ def main(open_browser: bool = True):
         G2=(5.5, 6.0, -135.0),
         H=(-11.0, 2.0, 90.0),
     )
-    ex_x, ex_y, ex_th, ex_R, ex_c, ex_a, ex_t = [], [], [], [], [], [], []
+    ex_x, ex_y, ex_th, ex_c, ex_s, ex_a, ex_t, ex_names = [], [], [], [], [], [], [], []
     for name, (xi, yi, thi) in examples.items():
         Ri = score_pose(xi, yi, thi)
         col = risk_color(Ri)
+        alpha = float(col[3])
         ex_x.append(xi)
         ex_y.append(yi)
         ex_th.append(thi)
-        ex_R.append(Ri)
         ex_c.append(rgb_css(col))
-        ex_a.append(float(col[3]))
+        ex_s.append(8.0 + 4.0 * Ri)
+        ex_a.append(alpha)
+        ex_names.append(name)
         ex_t.append(
-            f"{name}<br>R={Ri:.2f}<br>α={col[3]:.2f}<br>(x,y,θ)=({xi:g},{yi:g},{thi:g})"
+            f"{name}<br>R={Ri:.2f}<br>α={alpha:.2f}<br>(x,y,θ)=({xi:g},{yi:g},{thi:g})"
         )
 
-    hover = [
-        f"R={ri:.2f}<br>α={0.35 + 0.65 * ri:.2f}<br>x={xi:.0f} m<br>y={yi:.0f} m<br>θ={thi:.0f}°"
-        for xi, yi, thi, ri in zip(x, y, theta, R)
-    ]
-
     payload = {
-        "x": x.tolist(),
-        "y": y.tolist(),
-        "theta": theta.tolist(),
-        "R": R.tolist(),
-        "colors": colors,
-        "alphas": alphas,
-        "hover": hover,
+        "bins": bins,
         "ex": {
             "x": ex_x,
             "y": ex_y,
             "theta": ex_th,
-            "R": ex_R,
             "colors": ex_c,
+            "sizes": ex_s,
             "alphas": ex_a,
             "text": ex_t,
-            "names": list(examples.keys()),
+            "names": ex_names,
         },
         "meta": {
             "wp": W_P,
@@ -109,70 +131,84 @@ def main(open_browser: bool = True):
   <title>Risk particles 3D (interactive)</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
-    html, body {{ margin: 0; height: 100%; background: #111; color: #eee;
+    html, body {{ margin: 0; height: 100%; background: #e8e8ec; color: #222;
       font-family: "Segoe UI", Meiryo, sans-serif; }}
-    #bar {{ padding: 10px 16px; background: #1b1b1f; border-bottom: 1px solid #333;
+    #bar {{ padding: 10px 16px; background: #f7f7fa; border-bottom: 1px solid #ccc;
       display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; }}
     #bar h1 {{ margin: 0; font-size: 16px; font-weight: 600; }}
-    #bar span {{ color: #aaa; font-size: 13px; }}
+    #bar span {{ color: #555; font-size: 13px; }}
     #plot {{ width: 100%; height: calc(100% - 48px); }}
   </style>
 </head>
 <body>
   <div id="bar">
     <h1>危険度 R の 3D 粒子（ドラッグで回転 / スクロールでズーム）</h1>
-    <span>色・不透明度とも RiskToVisualMapper（α=0.35+0.65R）　／　R = {W_P}·Rp + {W_C}·Rc + {W_D}·Rd　／　N=<span id="n"></span></span>
+    <span>色＋不透明度 α=0.35+0.65R（低Rほど透ける）　／　R = {W_P}·Rp + {W_C}·Rc + {W_D}·Rd　／　N=<span id="n"></span></span>
   </div>
   <div id="plot"></div>
   <script>
     const DATA = {json.dumps(payload, ensure_ascii=False)};
     document.getElementById('n').textContent = DATA.meta.n;
 
-    const cloud = {{
+    // scatter3d: opacity must be scalar per trace → α-binned traces
+    const traces = DATA.bins.map(b => ({{
       type: 'scatter3d',
       mode: 'markers',
-      name: 'grid',
-      x: DATA.x,
-      y: DATA.y,
-      z: DATA.theta,
-      text: DATA.hover,
+      name: b.name,
+      x: b.x,
+      y: b.y,
+      z: b.theta,
+      text: b.hover,
       hoverinfo: 'text',
       marker: {{
-        size: 2.8,
-        color: DATA.colors,
-        opacity: DATA.alphas,
+        size: b.sizes,
+        color: b.colors,
+        opacity: b.opacity,
+        line: {{ width: 0 }},
       }},
-    }};
+    }}));
 
-    const examples = {{
-      type: 'scatter3d',
-      mode: 'markers+text',
-      name: 'examples',
-      x: DATA.ex.x,
-      y: DATA.ex.y,
-      z: DATA.ex.theta,
-      text: DATA.ex.names,
-      textposition: 'top center',
-      textfont: {{ size: 12, color: '#fff' }},
-      hovertext: DATA.ex.text,
-      hoverinfo: 'text',
-      marker: {{
-        size: 9,
-        color: DATA.ex.colors,
-        opacity: DATA.ex.alphas,
-        line: {{ width: 1, color: '#111' }},
-      }},
-    }};
+    // examples: one point per trace so each keeps its own α
+    DATA.ex.names.forEach((name, i) => {{
+      traces.push({{
+        type: 'scatter3d',
+        mode: 'markers+text',
+        name: name,
+        x: [DATA.ex.x[i]],
+        y: [DATA.ex.y[i]],
+        z: [DATA.ex.theta[i]],
+        text: [name],
+        textposition: 'top center',
+        textfont: {{ size: 12, color: '#111' }},
+        hovertext: [DATA.ex.text[i]],
+        hoverinfo: 'text',
+        marker: {{
+          size: DATA.ex.sizes[i],
+          color: DATA.ex.colors[i],
+          opacity: DATA.ex.alphas[i],
+          line: {{ width: 1, color: '#111' }},
+        }},
+        showlegend: false,
+      }});
+    }});
 
     const layout = {{
-      paper_bgcolor: '#111',
-      plot_bgcolor: '#111',
+      paper_bgcolor: '#e8e8ec',
+      plot_bgcolor: '#e8e8ec',
       margin: {{ l: 0, r: 0, t: 10, b: 0 }},
-      showlegend: false,
+      showlegend: true,
+      legend: {{
+        bgcolor: 'rgba(255,255,255,0.85)',
+        bordercolor: '#ccc',
+        borderwidth: 1,
+        font: {{ size: 11 }},
+        x: 0, y: 1,
+      }},
       scene: {{
-        xaxis: {{ title: 'x (m) lateral', color: '#ccc', gridcolor: '#333', range: [-15, 15] }},
-        yaxis: {{ title: 'y (m) forward', color: '#ccc', gridcolor: '#333', range: [0, 14] }},
-        zaxis: {{ title: 'θ (deg)', color: '#ccc', gridcolor: '#333', range: [-180, 180] }},
+        bgcolor: '#f4f4f8',
+        xaxis: {{ title: 'x (m) lateral', color: '#333', gridcolor: '#ccc', range: [-15, 15] }},
+        yaxis: {{ title: 'y (m) forward', color: '#333', gridcolor: '#ccc', range: [0, 14] }},
+        zaxis: {{ title: 'θ (deg)', color: '#333', gridcolor: '#ccc', range: [-180, 180] }},
         aspectmode: 'manual',
         aspectratio: {{ x: 1.2, y: 1.0, z: 1.0 }},
         camera: {{
@@ -189,7 +225,7 @@ def main(open_browser: bool = True):
       modeBarButtonsToRemove: ['toImage', 'lasso2d', 'select2d'],
     }};
 
-    Plotly.newPlot('plot', [cloud, examples], layout, config);
+    Plotly.newPlot('plot', traces, layout, config);
   </script>
 </body>
 </html>
@@ -198,7 +234,7 @@ def main(open_browser: bool = True):
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     OUT_HTML.write_text(html, encoding="utf-8")
     print(f"wrote {OUT_HTML}")
-    print(f"points: {len(x)}")
+    print(f"points: {len(x)} in {len(bins)} opacity bins")
     if open_browser:
         webbrowser.open(OUT_HTML.resolve().as_uri())
 
