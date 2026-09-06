@@ -73,19 +73,25 @@ def ensure_slide_png() -> Path:
     draw.text((80, 48), "危険度スコア R ごとの経路表示（色・不透明度）", fill=(20, 20, 20), font=f_title)
     draw.text(
         (80, 110),
+        "R = max(0.08, min(1, 0.55Rp+0.30Rc+0.15Rd)) → RiskToVisualMapper",
+        fill=(90, 90, 90),
+        font=f_sub,
+    )
+    draw.text(
+        (80, 145),
         "α = 0.35 + 0.65R    H = (1−R)×180°    S = 0.4+0.6R    V = 0.5+0.3R",
         fill=(90, 90, 90),
         font=f_sub,
     )
     draw.text(
-        (80, 150),
+        (80, 180),
         "上段：色のみ（不透明）　／　下段：不透明度込み（市松模様の上）",
         fill=(90, 90, 90),
         font=f_sub,
     )
     margin, gap, n = 80, 28, 5
     cell_w = (W - 2 * margin - gap * (n - 1)) // n
-    y_top, sw_h = 220, 120
+    y_top, sw_h = 240, 110
     for i, r in enumerate(SAMPLES):
         Hdeg, S, V, a, rgb = map_r(r)
         x = margin + i * (cell_w + gap)

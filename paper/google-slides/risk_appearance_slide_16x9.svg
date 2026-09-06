@@ -2,48 +2,49 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
 <rect width="1920" height="1080" fill="#ffffff"/>
 <text x="80" y="80" font-family="Meiryo, Yu Gothic, sans-serif" font-size="44" fill="#141414">危険度スコア R ごとの経路表示（色・不透明度）</text>
-<text x="80" y="130" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">α = 0.35 + 0.65R　　H = (1−R)×180°　　S = 0.4+0.6R　　V = 0.5+0.3R</text>
+<text x="80" y="125" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">R = max(0.08, min(1, 0.55Rp+0.30Rc+0.15Rd))　→　RiskToVisualMapper</text>
+<text x="80" y="160" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">α = 0.35 + 0.65R　　H = (1−R)×180°　　S = 0.4+0.6R　　V = 0.5+0.3R</text>
 <defs><pattern id="chk" width="14" height="14" patternUnits="userSpaceOnUse">
 <rect width="14" height="14" fill="#ffffff"/><rect width="7" height="7" fill="#dcdcdc"/><rect x="7" y="7" width="7" height="7" fill="#dcdcdc"/>
 </pattern></defs>
-<rect x="80" y="220" width="329" height="120" fill="#4C7F7F" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="80" y="356" width="329" height="120" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="80" y="356" width="329" height="120" fill="#4C7F7F" fill-opacity="0.3500" stroke="#1e1e1e" stroke-width="2"/>
-<text x="88" y="516" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 0</text>
-<text x="88" y="552" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">青緑・うすい</text>
-<text x="88" y="588" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 180°</text>
-<text x="88" y="620" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 0.350</text>
-<text x="88" y="652" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#4C7F7F</text>
-<rect x="437" y="220" width="329" height="120" fill="#419256" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="437" y="356" width="329" height="120" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="437" y="356" width="329" height="120" fill="#419256" fill-opacity="0.5125" stroke="#1e1e1e" stroke-width="2"/>
-<text x="445" y="516" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 0.25</text>
-<text x="445" y="552" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">緑・ややうすい</text>
-<text x="445" y="588" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 135°</text>
-<text x="445" y="620" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 0.512</text>
-<text x="445" y="652" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#419256</text>
-<rect x="794" y="220" width="329" height="120" fill="#6BA531" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="794" y="356" width="329" height="120" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="794" y="356" width="329" height="120" fill="#6BA531" fill-opacity="0.6750" stroke="#1e1e1e" stroke-width="2"/>
-<text x="802" y="516" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 0.5</text>
-<text x="802" y="552" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">黄緑・中くらい</text>
-<text x="802" y="588" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 90°</text>
-<text x="802" y="620" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 0.675</text>
-<text x="802" y="652" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#6BA531</text>
-<rect x="1151" y="220" width="329" height="120" fill="#B8911B" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="1151" y="356" width="329" height="120" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="1151" y="356" width="329" height="120" fill="#B8911B" fill-opacity="0.8375" stroke="#1e1e1e" stroke-width="2"/>
-<text x="1159" y="516" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 0.75</text>
-<text x="1159" y="552" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">橙黄・やや濃い</text>
-<text x="1159" y="588" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 45°</text>
-<text x="1159" y="620" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 0.838</text>
-<text x="1159" y="652" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#B8911B</text>
-<rect x="1508" y="220" width="329" height="120" fill="#CC0000" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="1508" y="356" width="329" height="120" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
-<rect x="1508" y="356" width="329" height="120" fill="#CC0000" fill-opacity="1.0000" stroke="#1e1e1e" stroke-width="2"/>
-<text x="1516" y="516" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 1</text>
-<text x="1516" y="552" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">赤・はっきり</text>
-<text x="1516" y="588" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 0°</text>
-<text x="1516" y="620" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 1.000</text>
-<text x="1516" y="652" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#CC0000</text>
+<rect x="80" y="220" width="329" height="110" fill="#4C7F7F" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="80" y="346" width="329" height="110" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="80" y="346" width="329" height="110" fill="#4C7F7F" fill-opacity="0.3500" stroke="#1e1e1e" stroke-width="2"/>
+<text x="88" y="496" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 0</text>
+<text x="88" y="532" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">青緑・うすい</text>
+<text x="88" y="568" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 180°</text>
+<text x="88" y="600" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 0.350</text>
+<text x="88" y="632" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#4C7F7F</text>
+<rect x="437" y="220" width="329" height="110" fill="#419256" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="437" y="346" width="329" height="110" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="437" y="346" width="329" height="110" fill="#419256" fill-opacity="0.5125" stroke="#1e1e1e" stroke-width="2"/>
+<text x="445" y="496" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 0.25</text>
+<text x="445" y="532" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">緑・ややうすい</text>
+<text x="445" y="568" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 135°</text>
+<text x="445" y="600" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 0.512</text>
+<text x="445" y="632" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#419256</text>
+<rect x="794" y="220" width="329" height="110" fill="#6BA531" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="794" y="346" width="329" height="110" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="794" y="346" width="329" height="110" fill="#6BA531" fill-opacity="0.6750" stroke="#1e1e1e" stroke-width="2"/>
+<text x="802" y="496" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 0.5</text>
+<text x="802" y="532" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">黄緑・中くらい</text>
+<text x="802" y="568" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 90°</text>
+<text x="802" y="600" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 0.675</text>
+<text x="802" y="632" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#6BA531</text>
+<rect x="1151" y="220" width="329" height="110" fill="#B8911B" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="1151" y="346" width="329" height="110" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="1151" y="346" width="329" height="110" fill="#B8911B" fill-opacity="0.8375" stroke="#1e1e1e" stroke-width="2"/>
+<text x="1159" y="496" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 0.75</text>
+<text x="1159" y="532" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">橙黄・やや濃い</text>
+<text x="1159" y="568" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 45°</text>
+<text x="1159" y="600" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 0.838</text>
+<text x="1159" y="632" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#B8911B</text>
+<rect x="1508" y="220" width="329" height="110" fill="#CC0000" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="1508" y="346" width="329" height="110" fill="url(#chk)" stroke="#1e1e1e" stroke-width="2"/>
+<rect x="1508" y="346" width="329" height="110" fill="#CC0000" fill-opacity="1.0000" stroke="#1e1e1e" stroke-width="2"/>
+<text x="1516" y="496" font-family="Meiryo, Yu Gothic, sans-serif" font-size="26" fill="#0a0a0a">R = 1</text>
+<text x="1516" y="532" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#323232">赤・はっきり</text>
+<text x="1516" y="568" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">H = 0°</text>
+<text x="1516" y="600" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">α = 1.000</text>
+<text x="1516" y="632" font-family="Meiryo, Yu Gothic, sans-serif" font-size="20" fill="#323232">#CC0000</text>
 </svg>

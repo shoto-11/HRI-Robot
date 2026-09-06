@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Research-style particle scatter: (x, y, θ) with projections and sliced planes.
+Risk R matches VehicleRiskCalculator (PTTC + path TTC + proximity weighted sum).
 Point colors match RiskToVisualMapper (HSV).
 Requires: pip install numpy matplotlib
 """
@@ -10,6 +11,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 T_MAX, D_MAX, GAMMA = 4.0, 13.6, 0.6
+W_P, W_C, W_D = 0.55, 0.30, 0.15
+SCORE_FLOOR = 0.08
+V_CLOSE_EPS = 0.05
+DEFAULT_SPEED = 1.2
 OUT_DIR = Path(__file__).resolve().parent.parent / "paper" / "google-slides"
 
 
@@ -23,18 +28,50 @@ def risk_color(R: float):
     return (r, g, b, a)
 
 
-def score(d, t):
-    r_ttc = 0.0 if (not np.isfinite(t) or t > T_MAX) else (max(0.0, 1.0 - t / T_MAX) ** GAMMA)
-    r_prox = 0.0 if d >= D_MAX else (max(0.0, 1.0 - d / D_MAX) ** GAMMA)
-    if not ((np.isfinite(t) and t <= T_MAX) or d <= D_MAX):
+def time_to_score(t: float) -> float:
+    if not np.isfinite(t) or t > T_MAX:
         return 0.0
-    return max(0.08, r_ttc, r_prox)
+    return max(0.0, 1.0 - t / T_MAX) ** GAMMA
 
 
-def estimate_ttc(x, y, theta, speed=1.2):
-    """Deterministic TTC proxy. θ=0 is +Y (same as worker forward)."""
-    move_y = np.cos(np.deg2rad(theta))  # θ=0 → +Y
-    move_x = np.sin(np.deg2rad(theta))  # θ=90 → +X
+def score_from_times(d: float, tp: float, tc: float) -> float:
+    """Display gate: d ≤ D_max only. R = weighted sum of Rp, Rc, Rd."""
+    if d > D_MAX:
+        return 0.0
+    rp = time_to_score(tp)
+    rc = time_to_score(tc)
+    rd = 0.0 if d >= D_MAX else max(0.0, 1.0 - d / D_MAX) ** GAMMA
+    r = W_P * rp + W_C * rc + W_D * rd
+    return max(SCORE_FLOOR, min(1.0, r))
+
+
+def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
+    """PTTC to worker at origin. θ=0 is +Y. r = -pos, v_close = max(0, r̂·v)."""
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    theta = np.asarray(theta, dtype=float)
+    d = np.hypot(x, y)
+    t = np.full(np.shape(x), np.inf, dtype=float)
+    near = d < 1e-4
+    t[near] = 0.0
+    ok = ~near
+    move_x = np.sin(np.deg2rad(theta)) * speed
+    move_y = np.cos(np.deg2rad(theta)) * speed
+    # r_hat = (-x, -y) / d  →  r_hat · v = -(x vx + y vy) / d
+    v_close = np.zeros_like(d)
+    v_close[ok] = -(x[ok] * move_x[ok] + y[ok] * move_y[ok]) / d[ok]
+    closing = ok & (v_close >= V_CLOSE_EPS)
+    t[closing] = d[closing] / v_close[closing]
+    return t
+
+
+def estimate_path_ttc(x, y, theta, speed=DEFAULT_SPEED):
+    """Path-TTC proxy to gaze baseline (y≈0 thick line). θ=0 is +Y."""
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    theta = np.asarray(theta, dtype=float)
+    move_y = np.cos(np.deg2rad(theta))
+    move_x = np.sin(np.deg2rad(theta))
     t = np.full(np.shape(x), np.inf, dtype=float)
     # Toward worker / baseline from +y: need −Y motion
     approach = (y > 0.05) & (move_y < -0.05)
@@ -42,6 +79,13 @@ def estimate_ttc(x, y, theta, speed=1.2):
     cross = (~approach) & (np.abs(y) < 3.0) & (np.abs(move_x) > 0.35) & (x * move_x < 0)
     t[cross] = np.abs(x[cross]) / (np.abs(move_x[cross]) * speed)
     return np.clip(t, 0.0, 8.0)
+
+
+def score_pose(x, y, theta, speed=DEFAULT_SPEED) -> float:
+    d = float(np.hypot(x, y))
+    tp = float(estimate_pttc(x, y, theta, speed))
+    tc = float(estimate_path_ttc(x, y, theta, speed))
+    return score_from_times(d, tp, tc)
 
 
 def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
@@ -53,17 +97,18 @@ def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
     x = xx.ravel()
     y = yy.ravel()
     theta = tt.ravel()
-    ttc = estimate_ttc(x, y, theta)
     d = np.hypot(x, y)
-    R = np.array([score(di, ti) for di, ti in zip(d, ttc)])
+    tp = estimate_pttc(x, y, theta)
+    tc = estimate_path_ttc(x, y, theta)
+    R = np.array([score_from_times(di, tpi, tci) for di, tpi, tci in zip(d, tp, tc)])
     keep = R > 0
     return x[keep], y[keep], theta[keep], R[keep]
 
 
 def plot_projection(ax, u, v, colors, examples, u_key, v_key, xlabel, ylabel, title):
     ax.scatter(u, v, c=colors, s=10, linewidths=0, rasterized=True, zorder=1)
-    for name, (xi, yi, thi, ti) in examples.items():
-        Ri = score(np.hypot(xi, yi), ti)
+    for name, (xi, yi, thi) in examples.items():
+        Ri = score_pose(xi, yi, thi)
         uu = {"x": xi, "y": yi, "theta": thi}[u_key]
         vv = {"x": xi, "y": yi, "theta": thi}[v_key]
         ax.scatter([uu], [vv], c=[risk_color(Ri)], s=70, edgecolors="k", linewidths=0.6, zorder=3)
@@ -89,27 +134,27 @@ def plot_slice_scatter(ax, u, v, colors, xlabel, ylabel, title, examples_uv=None
 
 def examples_on_theta_slice(examples, theta0, atol=1.0):
     out = []
-    for name, (xi, yi, thi, ti) in examples.items():
+    for name, (xi, yi, thi) in examples.items():
         if abs(thi - theta0) <= atol or abs(abs(thi - theta0) - 360) <= atol:
-            Ri = score(np.hypot(xi, yi), ti)
+            Ri = score_pose(xi, yi, thi)
             out.append((name, xi, yi, risk_color(Ri)))
     return out
 
 
 def examples_on_y_slice(examples, y0, atol=0.6):
     out = []
-    for name, (xi, yi, thi, ti) in examples.items():
+    for name, (xi, yi, thi) in examples.items():
         if abs(yi - y0) <= atol:
-            Ri = score(np.hypot(xi, yi), ti)
+            Ri = score_pose(xi, yi, thi)
             out.append((name, xi, thi, risk_color(Ri)))
     return out
 
 
 def examples_on_x_slice(examples, x0, atol=0.6):
     out = []
-    for name, (xi, yi, thi, ti) in examples.items():
+    for name, (xi, yi, thi) in examples.items():
         if abs(xi - x0) <= atol:
-            Ri = score(np.hypot(xi, yi), ti)
+            Ri = score_pose(xi, yi, thi)
             out.append((name, yi, thi, risk_color(Ri)))
     return out
 
@@ -144,7 +189,7 @@ def save_theta_slices(x, y, theta, colors, examples):
         ax.set_ylim(-0.5, 14.5)
         ax.set_aspect("equal", adjustable="box")
     fig.suptitle(
-        "Pose space sliced by heading θ (θ=0 = +Y) — each panel is one xy plane",
+        "Pose space sliced by heading θ (θ=0 = +Y) — R = 0.55Rp+0.30Rc+0.15Rd",
         fontsize=12,
     )
     fig.tight_layout()
@@ -217,8 +262,8 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
         ZZ = np.full_like(XX, th0)
         ax.plot_surface(XX, YY, ZZ, color="gray", alpha=alpha, linewidth=0, antialiased=False)
 
-    for name, (xi, yi, thi, ti) in examples.items():
-        Ri = score(np.hypot(xi, yi), ti)
+    for name, (xi, yi, thi) in examples.items():
+        Ri = score_pose(xi, yi, thi)
         ax.scatter([xi], [yi], [thi], c=[risk_color(Ri)], s=70, edgecolors="k", linewidths=0.5)
         ax.text(xi, yi, thi, f" {name}", fontsize=7)
 
@@ -233,34 +278,35 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
 
 
 def main():
+    # (x, y, θ); θ=0 is +Y (same as worker). Approach from front = 180°.
     examples = dict(
-        # θ=0 is +Y (same as worker). Approach from front = 180°.
-        A=(0.0, 10.0, 180.0, 1.2),
-        B=(1.5, 0.2, 0.0, np.inf),
-        C=(0.0, 3.0, 180.0, 1.0),
-        D=(2.0, 1.0, 90.0, 3.5),
-        E=(6.8, 0.5, 90.0, 2.0),
-        G=(-5.5, 6.0, 135.0, 1.4),
-        G2=(5.5, 6.0, -135.0, 1.4),
-        H=(-11.0, 2.0, 90.0, 1.5),
+        A=(0.0, 10.0, 180.0),
+        B=(1.5, 0.2, 0.0),
+        C=(0.0, 3.0, 180.0),
+        D=(2.0, 1.0, 90.0),
+        E=(6.8, 0.5, 90.0),
+        G=(-5.5, 6.0, 135.0),
+        G2=(5.5, 6.0, -135.0),
+        H=(-11.0, 2.0, 90.0),
     )
 
     x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
     colors = np.array([risk_color(r) for r in R])
     print(f"grid points kept: {len(x)} (Δx=1m, Δy=1m, Δθ=15°; θ=0 is +Y)")
+    print(f"weights: wp={W_P}, wc={W_C}, wd={W_D}; visible iff d<={D_MAX}")
 
     # ---- 3D ----
     fig3d = plt.figure(figsize=(8.5, 6.5), dpi=150)
     ax3d = fig3d.add_subplot(111, projection="3d")
     ax3d.scatter(x, y, theta, c=colors, s=8, linewidths=0, depthshade=False, rasterized=True)
-    for name, (xi, yi, thi, ti) in examples.items():
-        Ri = score(np.hypot(xi, yi), ti)
+    for name, (xi, yi, thi) in examples.items():
+        Ri = score_pose(xi, yi, thi)
         ax3d.scatter([xi], [yi], [thi], c=[risk_color(Ri)], s=80, edgecolors="k", linewidths=0.6)
         ax3d.text(xi, yi, thi, f"  {name}", fontsize=8)
     ax3d.set_xlabel("x (m)  lateral")
     ax3d.set_ylabel("y (m)  forward")
     ax3d.set_zlabel("θ (deg) heading")
-    ax3d.set_title("3D: regular grid (θ=0 = +Y, same as worker) colored by R")
+    ax3d.set_title("3D: R = 0.55 Rp + 0.30 Rc + 0.15 Rd (θ=0 = +Y)")
     ax3d.view_init(elev=22, azim=-58)
     fig3d.tight_layout()
     save_fig(fig3d, "risk_particles_3d")
@@ -283,8 +329,8 @@ def main():
     figp = plt.figure(figsize=(11, 9), dpi=150)
     ax0 = figp.add_subplot(2, 2, 1, projection="3d")
     ax0.scatter(x, y, theta, c=colors, s=6, linewidths=0, depthshade=False, rasterized=True)
-    for name, (xi, yi, thi, ti) in examples.items():
-        Ri = score(np.hypot(xi, yi), ti)
+    for name, (xi, yi, thi) in examples.items():
+        Ri = score_pose(xi, yi, thi)
         ax0.scatter([xi], [yi], [thi], c=[risk_color(Ri)], s=55, edgecolors="k", linewidths=0.5)
         ax0.text(xi, yi, thi, f" {name}", fontsize=7)
     ax0.set_xlabel("x (m)")
@@ -301,7 +347,7 @@ def main():
     plot_projection(ax_xz, x, theta, colors, examples, "x", "theta", "x (m)", "θ (°)", "xz")
 
     figp.suptitle(
-        "AGV pose regular grid by display risk R — 3D and orthographic projections",
+        "AGV pose grid by R (PTTC+pathTTC+prox weighted sum) — 3D and orthographic",
         fontsize=12,
     )
     figp.tight_layout()

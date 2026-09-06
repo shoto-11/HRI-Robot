@@ -6,10 +6,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 from pptx import Presentation
-from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
-from pptx.util import Inches, Pt, Emu
-from reportlab.lib.colors import Color, HexColor, black, white
+from pptx.util import Inches
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -33,20 +30,6 @@ def jp_font(size: int):
     return ImageFont.load_default()
 
 
-def register_pdf_font() -> str:
-    for name, path in [
-        ("Meiryo", r"C:\Windows\Fonts\meiryo.ttc"),
-        ("YuGothic", r"C:\Windows\Fonts\YuGothM.ttc"),
-    ]:
-        if os.path.exists(path):
-            try:
-                pdfmetrics.registerFont(TTFont(name, path, subfontIndex=0))
-                return name
-            except Exception:
-                continue
-    return "Helvetica"
-
-
 def rounded_rect(draw, box, fill, outline=(200, 200, 200), radius=16, width=2):
     draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
 
@@ -61,15 +44,8 @@ def draw_formula_slide_png() -> Path:
     f_small = jp_font(16)
     f_tiny = jp_font(14)
 
-    # Title bar
     d.rectangle([0, 0, W, 88], fill=(32, 56, 88))
     d.text((48, 22), "危険度スコア R の計算と視覚マッピング（Proposed）", fill=(255, 255, 255), font=f_title)
-
-    # Column layout: left risk, right visual
-    # Card 1: Visibility
-    cards = []
-    # left column x=40..940, right 980..1880
-    # 4 cards left stacked, 2 cards right + params
 
     def card(xyxy, title, lines, title_bg=(45, 90, 140)):
         x0, y0, x1, y1 = xyxy
@@ -84,51 +60,47 @@ def draw_formula_slide_png() -> Path:
             d.text((x0 + 18, yy), text, fill=color, font=f)
             yy += 30 if kind != "eq" else 34
 
-    # Left: pipeline
     card(
         (40, 110, 940, 250),
-        "① 表示可否（Visibility）",
+        "① 表示可否（距離のみ）",
         [
-            ("eq", "visible = ( T ≤ Tmax )  ∨  ( d ≤ Dmax )"),
-            ("body", "非表示なら R = 0　／　Tmax = 4.0 s　／　Dmax = 13.6 m"),
+            ("eq", "visible = ( d ≤ Dmax )"),
+            ("body", "非表示なら R = 0　／　Dmax = 13.6 m　／　Tmax は表示に使わない"),
             ("small", "Dmax = (vAGV,max + vped) × Tmax = (2.0 + 1.4) × 4"),
         ],
         (40, 110, 160),
     )
     card(
-        (40, 268, 940, 460),
-        "② TTC（Time To Conflict）",
+        (40, 268, 940, 500),
+        "② 三要因（PTTC / 経路TTC / 近接）",
         [
-            ("eq", "T = s / max(v,  vmin)     vmin = 0.1 m/s"),
-            ("body", "s : AGV残存経路が視線方向の太線ゾーンと交わるまでの距離"),
-            ("eq", "Rttc = 0          (T = ∞)"),
-            ("eq", "Rttc = (1 − T/Tmax)^γ     (0 ≤ T ≤ Tmax)"),
-            ("small", "γ = 0.6　／　視線基準線の半幅 w = 0.5 m（全幅 1.0 m）"),
+            ("eq", "Tp = d / vclose     vclose = max(0, r̂ · v)（近づかない→∞）"),
+            ("eq", "Tc = s / max(v, 0.1)     s: 経路→視線太線までの道のり"),
+            ("eq", "Rp,Rc = (1 − T/Tmax)^γ     Rd = (1 − d/Dmax)^γ"),
+            ("small", "Tmax = 4.0 s　／　γ = 0.6　／　基準線半幅 w = 0.5 m"),
         ],
         (30, 120, 100),
     )
     card(
-        (40, 478, 940, 650),
-        "③ 近接距離由来の危険度",
+        (40, 518, 940, 700),
+        "③ 統合スコア R（重み付き和）",
         [
-            ("eq", "Rprox = 0                 (d ≥ Dmax)"),
-            ("eq", "Rprox = (1 − d/Dmax)^γ    (d < Dmax)"),
-            ("body", "d : 参加者と AGV の 3D 距離　／　γ = 0.6"),
-        ],
-        (120, 80, 40),
-    )
-    card(
-        (40, 668, 940, 860),
-        "④ 統合スコア R",
-        [
-            ("eq", "R = max( Rttc ,  Rprox ,  Rfloor )"),
-            ("body", "R ∈ [0, 1]　／　大きいほど危険　／　Rfloor = 0.08（表示中の下限）"),
-            ("small", "TTC と近接の大きい方を採用 → 交差しないが近い／交差するが遠い の両方をカバー"),
+            ("eq", "R = max( Rfloor ,  min(1,  wp·Rp + wc·Rc + wd·Rd) )"),
+            ("body", "wp=0.55（迫り）　wc=0.30（視線横断）　wd=0.15（近接は保険）"),
+            ("small", "Rfloor = 0.08　／　max ではなく和 → 複合危険を加算"),
         ],
         (140, 50, 50),
     )
+    card(
+        (40, 718, 940, 860),
+        "④ 狙い",
+        [
+            ("body", "遠い正面迫り > 近いが向かない　／　視線横断は Rc で残す"),
+            ("small", "実装: VehicleRiskCalculator → RiskToVisualMapper → PathRenderer"),
+        ],
+        (50, 70, 90),
+    )
 
-    # Right: visual mapping
     card(
         (980, 110, 1880, 430),
         "⑤ 色・不透明度（連続）",
@@ -143,7 +115,6 @@ def draw_formula_slide_png() -> Path:
         (70, 50, 130),
     )
 
-    # Color bar strip
     import colorsys
 
     bar_x0, bar_y0, bar_x1, bar_y1 = 1000, 460, 1860, 540
@@ -155,7 +126,6 @@ def draw_formula_slide_png() -> Path:
         v = 0.5 + 0.3 * t
         a = 0.35 + 0.65 * t
         r, g, b = colorsys.hsv_to_rgb(h, s, v)
-        # blend with white for alpha preview
         rr = int((r * a + 1 * (1 - a)) * 255)
         gg = int((g * a + 1 * (1 - a)) * 255)
         bb = int((b * a + 1 * (1 - a)) * 255)
@@ -164,24 +134,22 @@ def draw_formula_slide_png() -> Path:
     d.text((bar_x0, bar_y1 + 8), "R=0  青緑・うすい", fill=(50, 50, 60), font=f_tiny)
     d.text((bar_x1 - 160, bar_y1 + 8), "R=1  赤・はっきり", fill=(50, 50, 60), font=f_tiny)
 
-    # Params table card
     card(
         (980, 590, 1880, 860),
         "主要パラメータ",
         [
-            ("body", "Tmax = 4.0 s　　Dmax = 13.6 m　　γ = 0.6　　Rfloor = 0.08"),
-            ("body", "w = 0.5 m（基準線半幅）　　vAGV,max = 2.0 m/s　　vped = 1.4 m/s"),
-            ("body", "実装: VehicleRiskCalculator → RiskToVisualMapper → PathRenderer"),
-            ("small", "視線方向の太線ゾーン × AGV残存経路交差 → TTC　／　近接距離も併用"),
+            ("body", "Tmax = 4.0 s（正規化のみ）　Dmax = 13.6 m（表示＋Rd）"),
+            ("body", "γ = 0.6　Rfloor = 0.08　wp/wc/wd = 0.55 / 0.30 / 0.15"),
+            ("body", "vAGV,max = 2.0 m/s　vped = 1.4 m/s　w = 0.5 m"),
+            ("small", "表示ゲートは距離のみ　／　スコアは Tp+Tc+d の重み付き和"),
         ],
         (50, 70, 90),
     )
 
-    # Footer
     d.rectangle([0, 1000, W, H], fill=(235, 238, 245))
     d.text(
         (48, 1025),
-        "HRI-Robot  Proposed eHMI  ／  危険度計算の1枚まとめ",
+        "HRI-Robot  Proposed eHMI  ／  危険度計算の1枚まとめ（PTTC + path TTC + 近接）",
         fill=(70, 75, 90),
         font=f_small,
     )
@@ -191,15 +159,21 @@ def draw_formula_slide_png() -> Path:
     return out
 
 
-def export_pptx(png: Path) -> Path:
+def export_pptx(png: Path) -> Path | None:
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
     s = prs.slides.add_slide(prs.slide_layouts[6])
     s.shapes.add_picture(str(png), Inches(0), Inches(0), width=prs.slide_width)
     out = OUT / "risk_formula_slide.pptx"
-    prs.save(out)
-    return out
+    try:
+        prs.save(out)
+        return out
+    except PermissionError:
+        alt = OUT / "risk_formula_slide_new.pptx"
+        prs.save(alt)
+        print("pptx locked; wrote", alt)
+        return alt
 
 
 def export_pdf(png: Path) -> Path:

@@ -57,13 +57,19 @@ f_small = font(18)
 draw.text((80, 48), "危険度スコア R ごとの経路表示（色・不透明度）", fill=(20, 20, 20), font=f_title)
 draw.text(
     (80, 110),
+    "R = max(0.08, min(1, 0.55Rp+0.30Rc+0.15Rd))　→　RiskToVisualMapper",
+    fill=(90, 90, 90),
+    font=f_sub,
+)
+draw.text(
+    (80, 145),
     "α = 0.35 + 0.65R    H = (1−R)×180°    S = 0.4+0.6R    V = 0.5+0.3R",
     fill=(90, 90, 90),
     font=f_sub,
 )
 draw.text(
-    (80, 150),
-    "上段：色のみ（不透明）　／　下段：不透明度込み（市松模様の上）",
+    (80, 180),
+    "上段：色のみ（不透明）　／　下段：不透明度込み（市松模様の上）　／　表示は d≤13.6 m のみ",
     fill=(90, 90, 90),
     font=f_sub,
 )
@@ -73,8 +79,8 @@ n = 5
 gap = 28
 usable = W - 2 * margin
 cell_w = (usable - gap * (n - 1)) // n
-y_top = 220
-sw_h = 120
+y_top = 240
+sw_h = 110
 
 for i, r in enumerate(samples):
     Hdeg, S, V, a, rgb = map_r(r)
@@ -144,7 +150,8 @@ svg_parts = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">',
     '<rect width="1920" height="1080" fill="#ffffff"/>',
     '<text x="80" y="80" font-family="Meiryo, Yu Gothic, sans-serif" font-size="44" fill="#141414">危険度スコア R ごとの経路表示（色・不透明度）</text>',
-    '<text x="80" y="130" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">α = 0.35 + 0.65R　　H = (1−R)×180°　　S = 0.4+0.6R　　V = 0.5+0.3R</text>',
+    '<text x="80" y="125" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">R = max(0.08, min(1, 0.55Rp+0.30Rc+0.15Rd))　→　RiskToVisualMapper</text>',
+    '<text x="80" y="160" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">α = 0.35 + 0.65R　　H = (1−R)×180°　　S = 0.4+0.6R　　V = 0.5+0.3R</text>',
     '<defs><pattern id="chk" width="14" height="14" patternUnits="userSpaceOnUse">',
     '<rect width="14" height="14" fill="#ffffff"/><rect width="7" height="7" fill="#dcdcdc"/><rect x="7" y="7" width="7" height="7" fill="#dcdcdc"/>',
     "</pattern></defs>",
