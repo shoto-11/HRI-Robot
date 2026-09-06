@@ -67,15 +67,18 @@ def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
 
 
 def estimate_path_ttc(x, y, theta, speed=DEFAULT_SPEED):
-    """Lateral-crossing path-TTC: s≈|x|/|sinθ|, Tc=s/v. Omit only θ≈0."""
+    """Lateral path-TTC: s≈|x|/|sinθ|, Tc=s/v.
+    Keep only headings that hit the y-axis (x·sinθ < 0), for both signs of x·y.
+    Omit θ≈0.
+    """
     x = np.asarray(x, dtype=float)
     theta = np.asarray(theta, dtype=float)
-    # wrap to [-180, 180); omit near 0 only (not ±180)
     th = np.mod(theta + 180.0, 360.0) - 180.0
-    omit = np.abs(th) < 0.5
+    omit0 = np.abs(th) < 0.5
     sin_th = np.sin(np.deg2rad(theta))
+    toward_y_axis = x * sin_th < 0  # heading toward x=0 (any quadrant)
     t = np.full(np.shape(x), np.inf, dtype=float)
-    ok = ~omit
+    ok = (~omit0) & toward_y_axis
     t[ok] = np.abs(x[ok]) / (np.maximum(np.abs(sin_th[ok]), 1e-6) * speed)
     return t
 
