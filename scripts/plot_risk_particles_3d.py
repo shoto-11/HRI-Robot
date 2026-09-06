@@ -31,29 +31,38 @@ def score(d, t):
     return max(0.08, r_ttc, r_prox)
 
 
-def build_cloud(rng, n=2500):
-    ang = (rng.random(n) - 0.5) * np.pi
-    rad = 0.8 + rng.random(n) * 14.0
-    x = np.sin(ang) * rad
-    y = np.cos(ang) * rad
-    theta = rng.uniform(-180, 180, n)
-    mask = rng.random(n) < 0.45
-    theta[mask] = np.where(x[mask] < 0, 90.0, -90.0) + rng.normal(0, 12, mask.sum())
-    speed = 0.6 + rng.random(n) * 1.6
-    move_y = -np.cos(np.deg2rad(theta))
-    t = np.full(n, np.inf)
-    approach = (y > 0.3) & (move_y < -0.05)
-    t[approach] = y[approach] / (np.abs(move_y[approach]) * speed[approach])
-    t = np.clip(t, 0, 8)
+def estimate_ttc(x, y, theta, speed=1.2):
+    """Deterministic TTC proxy from pose (same idea as before, no randomness)."""
+    move_y = -np.cos(np.deg2rad(theta))  # θ=0 → toward worker (−y from +y)
+    move_x = np.sin(np.deg2rad(theta))
+    t = np.full(np.shape(x), np.inf, dtype=float)
+    approach = (y > 0.05) & (move_y < -0.05)
+    t[approach] = y[approach] / (np.abs(move_y[approach]) * speed)
+    # near baseline, lateral crossing toward x=0
+    cross = (~approach) & (np.abs(y) < 3.0) & (np.abs(move_x) > 0.35) & (x * move_x < 0)
+    t[cross] = np.abs(x[cross]) / (np.abs(move_x[cross]) * speed)
+    return np.clip(t, 0.0, 8.0)
+
+
+def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
+    """Evenly spaced lattice in (x, y, θ)."""
+    xs = np.arange(-14.0, 14.0 + 1e-9, dx)
+    ys = np.arange(0.0, 14.0 + 1e-9, dy)
+    thetas = np.arange(-180.0, 180.0 + 1e-9, dtheta)
+    xx, yy, tt = np.meshgrid(xs, ys, thetas, indexing="xy")
+    x = xx.ravel()
+    y = yy.ravel()
+    theta = tt.ravel()
+    ttc = estimate_ttc(x, y, theta)
     d = np.hypot(x, y)
-    R = np.array([score(di, ti) for di, ti in zip(d, t)])
+    R = np.array([score(di, ti) for di, ti in zip(d, ttc)])
     keep = R > 0
     return x[keep], y[keep], theta[keep], R[keep]
 
 
 def plot_projection(ax, u, v, colors, examples, u_key, v_key, xlabel, ylabel, title):
     """2D orthographic projection of the particle cloud."""
-    ax.scatter(u, v, c=colors, s=4, linewidths=0, rasterized=True, zorder=1)
+    ax.scatter(u, v, c=colors, s=10, linewidths=0, rasterized=True, zorder=1)
     for name, (xi, yi, thi, ti) in examples.items():
         Ri = score(np.hypot(xi, yi), ti)
         uu = {"x": xi, "y": yi, "theta": thi}[u_key]
@@ -89,14 +98,14 @@ def main():
         H=(-11.0, 2.0, 90.0, 1.5),
     )
 
-    rng = np.random.default_rng(42)
-    x, y, theta, R = build_cloud(rng)
+    x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=30.0)
     colors = np.array([risk_color(r) for r in R])
+    print(f"grid points kept: {len(x)} (Δx=1m, Δy=1m, Δθ=30°)")
 
     # ---- 3D ----
     fig3d = plt.figure(figsize=(8.5, 6.5), dpi=150)
     ax3d = fig3d.add_subplot(111, projection="3d")
-    ax3d.scatter(x, y, theta, c=colors, s=4, linewidths=0, depthshade=False, rasterized=True)
+    ax3d.scatter(x, y, theta, c=colors, s=8, linewidths=0, depthshade=False, rasterized=True)
     for name, (xi, yi, thi, ti) in examples.items():
         Ri = score(np.hypot(xi, yi), ti)
         ax3d.scatter([xi], [yi], [thi], c=[risk_color(Ri)], s=80, edgecolors="k", linewidths=0.6)
@@ -104,16 +113,16 @@ def main():
     ax3d.set_xlabel("x (m)  lateral")
     ax3d.set_ylabel("y (m)  forward")
     ax3d.set_zlabel("θ (deg) heading")
-    ax3d.set_title("3D: AGV pose cloud colored by display risk R")
+    ax3d.set_title("3D: regular grid (Δx=Δy=1 m, Δθ=30°) colored by R")
     ax3d.view_init(elev=22, azim=-58)
     fig3d.tight_layout()
     save_fig(fig3d, "risk_particles_3d")
 
     # ---- three orthographic projections (separate files) ----
     projections = [
-        ("risk_particles_xy", x, y, "x", "y", "x (m) lateral", "y (m) forward", "Projection: xy plane (top view)"),
-        ("risk_particles_yz", y, theta, "y", "theta", "y (m) forward", "θ (deg) heading", "Projection: yz plane"),
-        ("risk_particles_xz", x, theta, "x", "theta", "x (m) lateral", "θ (deg) heading", "Projection: xz plane"),
+        ("risk_particles_xy", x, y, "x", "y", "x (m) lateral", "y (m) forward", "Projection: xy plane (uniform grid)"),
+        ("risk_particles_yz", y, theta, "y", "theta", "y (m) forward", "θ (deg) heading", "Projection: yz plane (uniform grid)"),
+        ("risk_particles_xz", x, theta, "x", "theta", "x (m) lateral", "θ (deg) heading", "Projection: xz plane (uniform grid)"),
     ]
     for stem, u, v, uk, vk, xlabel, ylabel, title in projections:
         fig, ax = plt.subplots(figsize=(7.5, 6.0), dpi=150)
@@ -125,7 +134,7 @@ def main():
     # ---- 2×2 panel (3D + xy / yz / xz) for slides ----
     figp = plt.figure(figsize=(11, 9), dpi=150)
     ax0 = figp.add_subplot(2, 2, 1, projection="3d")
-    ax0.scatter(x, y, theta, c=colors, s=3, linewidths=0, depthshade=False, rasterized=True)
+    ax0.scatter(x, y, theta, c=colors, s=6, linewidths=0, depthshade=False, rasterized=True)
     for name, (xi, yi, thi, ti) in examples.items():
         Ri = score(np.hypot(xi, yi), ti)
         ax0.scatter([xi], [yi], [thi], c=[risk_color(Ri)], s=55, edgecolors="k", linewidths=0.5)
@@ -133,7 +142,7 @@ def main():
     ax0.set_xlabel("x (m)")
     ax0.set_ylabel("y (m)")
     ax0.set_zlabel("θ (°)")
-    ax0.set_title("3D")
+    ax0.set_title("3D grid")
     ax0.view_init(elev=22, azim=-58)
 
     ax_xy = figp.add_subplot(2, 2, 2)
@@ -143,12 +152,14 @@ def main():
     ax_xz = figp.add_subplot(2, 2, 4)
     plot_projection(ax_xz, x, theta, colors, examples, "x", "theta", "x (m)", "θ (°)", "xz")
 
-    figp.suptitle("AGV pose cloud by display risk R — 3D and orthographic projections", fontsize=12)
+    figp.suptitle(
+        "AGV pose regular grid by display risk R — 3D and orthographic projections",
+        fontsize=12,
+    )
     figp.tight_layout()
     save_fig(figp, "risk_particles_projections_panel")
     plt.close(fig3d)
     plt.close(figp)
-
 
 if __name__ == "__main__":
     main()
