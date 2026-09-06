@@ -1,4 +1,4 @@
-"""Export risk appearance chart to PowerPoint (.pptx) and PDF."""
+"""Export risk appearance chart to PowerPoint (.pptx) and PNG."""
 from __future__ import annotations
 
 import colorsys
@@ -11,10 +11,6 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
-from reportlab.lib.utils import ImageReader
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen import canvas as pdf_canvas
 
 OUT = Path(__file__).resolve().parent
 SAMPLES = [0.0, 0.25, 0.5, 0.75, 1.0]
@@ -229,96 +225,11 @@ def export_pptx(slide_png: Path) -> Path:
     return out
 
 
-def register_jp_font() -> str:
-    for name, path in [
-        ("Meiryo", r"C:\Windows\Fonts\meiryo.ttc"),
-        ("YuGothic", r"C:\Windows\Fonts\YuGothM.ttc"),
-        ("MSGothic", r"C:\Windows\Fonts\msgothic.ttc"),
-    ]:
-        if os.path.exists(path):
-            try:
-                pdfmetrics.registerFont(TTFont(name, path, subfontIndex=0))
-                return name
-            except Exception:
-                continue
-    return "Helvetica"
-
-
-def export_pdf(slide_png: Path) -> Path:
-    out = OUT / "risk_appearance.pdf"
-    # landscape 16:9-ish page
-    page = (1920, 1080)
-    c = pdf_canvas.Canvas(str(out), pagesize=page)
-    font_name = register_jp_font()
-
-    # Page 1: full image
-    c.drawImage(ImageReader(str(slide_png)), 0, 0, width=page[0], height=page[1])
-    c.showPage()
-
-    # Page 2: table
-    c.setFont(font_name, 28)
-    c.drawString(80, page[1] - 80, "危険度 R ごとの色相・不透明度（数値）")
-    c.setFont(font_name, 16)
-    headers = ["R", "見た目", "H", "S", "V", "α", "RGB"]
-    xs = [80, 180, 420, 560, 680, 800, 980]
-    y = page[1] - 160
-    for x, h in zip(xs, headers):
-        c.drawString(x, y, h)
-    y -= 40
-    for i, r in enumerate(SAMPLES):
-        Hdeg, S, V, a, rgb = map_r(r)
-        vals = [
-            f"{r:g}",
-            LOOKS[i],
-            f"{Hdeg:.0f}°",
-            f"{S:.2f}",
-            f"{V:.2f}",
-            f"{a:.3f}",
-            f"#{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}",
-        ]
-        for x, v in zip(xs, vals):
-            c.drawString(x, y, v)
-        # color chip
-        c.setFillColorRGB(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
-        c.rect(1400, y - 8, 120, 28, fill=1, stroke=1)
-        c.setFillColorRGB(0, 0, 0)
-        y -= 48
-
-    c.setFont(font_name, 14)
-    c.drawString(80, 80, "HRI-Robot / RiskToVisualMapper")
-    c.showPage()
-
-    # Pages per R
-    for i, r in enumerate(SAMPLES):
-        Hdeg, S, V, a, rgb = map_r(r)
-        c.setFont(font_name, 32)
-        c.drawString(80, page[1] - 100, f"R = {r:g}　（{LOOKS[i]}）")
-        c.setFillColorRGB(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
-        c.rect(200, 420, 1520, 280, fill=1, stroke=1)
-        c.setFillColorRGB(0, 0, 0)
-        c.setFont(font_name, 22)
-        lines = [
-            f"色相 H = {Hdeg:.0f}°",
-            f"彩度 S = {S:.2f}　　明度 V = {V:.2f}",
-            f"不透明度 α = {a:.3f}  （α = 0.35 + 0.65R）",
-            f"RGB = ({rgb[0]}, {rgb[1]}, {rgb[2]})  #{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}",
-        ]
-        yy = 340
-        for line in lines:
-            c.drawString(200, yy, line)
-            yy -= 40
-        c.showPage()
-
-    c.save()
-    return out
-
-
 def main():
     slide_png = ensure_slide_png()
     pptx = export_pptx(slide_png)
-    pdf = export_pdf(slide_png)
     print("pptx:", pptx)
-    print("pdf:", pdf)
+    print("png:", slide_png)
 
 
 if __name__ == "__main__":

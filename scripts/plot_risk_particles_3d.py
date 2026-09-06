@@ -161,11 +161,8 @@ def examples_on_x_slice(examples, x0, atol=0.6):
 
 def save_fig(fig, stem: str):
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    pdf = OUT_DIR / f"{stem}.pdf"
     png = OUT_DIR / f"{stem}.png"
-    fig.savefig(pdf, bbox_inches="tight")
     fig.savefig(png, dpi=200, bbox_inches="tight")
-    print(f"wrote {pdf}")
     print(f"wrote {png}")
 
 

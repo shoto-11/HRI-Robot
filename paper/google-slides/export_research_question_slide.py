@@ -7,8 +7,6 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from pptx import Presentation
 from pptx.util import Inches
-from reportlab.lib.utils import ImageReader
-from reportlab.pdfgen import canvas as pdf_canvas
 
 OUT = Path(__file__).resolve().parent
 W, H = 1920, 1080
@@ -183,22 +181,11 @@ def export_pptx(png: Path) -> Path:
     return out
 
 
-def export_pdf(png: Path) -> Path:
-    out = OUT / "research_question_slide.pdf"
-    c = pdf_canvas.Canvas(str(out), pagesize=(W, H))
-    c.drawImage(ImageReader(str(png)), 0, 0, width=W, height=H)
-    c.showPage()
-    c.save()
-    return out
-
-
 def main():
     png = draw_slide()
     pptx = export_pptx(png)
-    pdf = export_pdf(png)
     print("png:", png)
     print("pptx:", pptx)
-    print("pdf:", pdf)
 
 
 if __name__ == "__main__":
