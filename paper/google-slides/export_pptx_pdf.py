@@ -69,7 +69,7 @@ def ensure_slide_png() -> Path:
     draw.text((80, 48), "危険度スコア R ごとの経路表示（色・不透明度）", fill=(20, 20, 20), font=f_title)
     draw.text(
         (80, 110),
-        "R = min(1, 0.55Rp+0.30Rc+0.15Rd) → RiskToVisualMapper",
+        "R = 0.85·winner(Rp,Rc)+0.15·Rd → RiskToVisualMapper",
         fill=(90, 90, 90),
         font=f_sub,
     )

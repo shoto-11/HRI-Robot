@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Research-style particle scatter: (x, y, θ) with projections and sliced planes.
-3D graphs use PTTC + lateral-crossing path TTC (s≈|x|/|sinθ|) + proximity.
-Front-approach path proxy s≈y/|cosθ| is NOT used (Unity still uses full path TTC).
+3D graphs use PTTC + lateral-crossing path TTC + proximity.
+Path TTC: s≈|x|/|sinθ|, only if y-axis hit is in front (y_hit>0).
+Front-approach proxy s≈y/|cosθ| is NOT used (Unity still uses full path TTC).
 Point color and opacity match RiskToVisualMapper (HSV + α=0.35+0.65R).
 Requires: pip install numpy matplotlib
 """
@@ -12,7 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 T_MAX, D_MAX, GAMMA = 4.0, 13.6, 0.6
-W_P, W_C, W_D = 0.55, 0.30, 0.15
+W_TIME, W_D = 0.85, 0.15
+PTTC_COMPARE = 2.0  # comparison only: prefer Rp when 2*Rp >= Rc
 V_CLOSE_EPS = 0.05
 DEFAULT_SPEED = 2.0
 OUT_DIR = Path(__file__).resolve().parent.parent / "paper" / "google-slides"
@@ -35,14 +37,16 @@ def time_to_score(t: float) -> float:
 
 
 def score_from_times(d: float, tp: float, tc: float) -> float:
-    """Display gate: d ≤ D_max. R = clamp(wp·Rp + wc·Rc + wd·Rd, 0, 1). No R_floor."""
+    """Display gate: d ≤ D_max.
+    R = w_time * (Rp if 2·Rp ≥ Rc else Rc) + w_d · Rd.
+    """
     if d > D_MAX:
         return 0.0
     rp = time_to_score(tp)
     rc = time_to_score(tc)
     rd = 0.0 if d >= D_MAX else max(0.0, 1.0 - d / D_MAX) ** GAMMA
-    r = W_P * rp + W_C * rc + W_D * rd
-    return float(np.clip(r, 0.0, 1.0))
+    time_risk = rp if (PTTC_COMPARE * rp >= rc) else rc
+    return float(np.clip(W_TIME * time_risk + W_D * rd, 0.0, 1.0))
 
 
 def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
@@ -66,19 +70,29 @@ def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
 
 
 def estimate_path_ttc(x, y, theta, speed=DEFAULT_SPEED):
-    """Lateral path-TTC: s≈|x|/|sinθ|, Tc=s/v.
-    Keep only headings that hit the y-axis (x·sinθ < 0), for both signs of x·y.
-    Omit θ≈0.
+    """Lateral path-TTC to the y-axis (x=0): s≈|x|/|sinθ|, Tc=s/v.
+
+    y enters via the hit ordinate:
+        y_hit = y - x · cosθ / sinθ
+    Only count crossings in front of the worker (y_hit > 0).
+    Also require heading toward the axis (x·sinθ < 0). Omit θ≈0.
     """
     x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
     theta = np.asarray(theta, dtype=float)
     th = np.mod(theta + 180.0, 360.0) - 180.0
     omit0 = np.abs(th) < 0.5
     sin_th = np.sin(np.deg2rad(theta))
-    toward_y_axis = x * sin_th < 0  # heading toward x=0 (any quadrant)
+    cos_th = np.cos(np.deg2rad(theta))
+    toward_y_axis = x * sin_th < 0
+    # Intersection with x=0 along the heading ray
+    y_hit = np.full(np.shape(x), np.nan, dtype=float)
+    valid_sin = np.abs(sin_th) > 1e-6
+    y_hit[valid_sin] = y[valid_sin] - x[valid_sin] * cos_th[valid_sin] / sin_th[valid_sin]
+    front_hit = y_hit > 0.0
     t = np.full(np.shape(x), np.inf, dtype=float)
-    ok = (~omit0) & toward_y_axis
-    t[ok] = np.abs(x[ok]) / (np.maximum(np.abs(sin_th[ok]), 1e-6) * speed)
+    ok = (~omit0) & toward_y_axis & valid_sin & front_hit
+    t[ok] = np.abs(x[ok]) / (np.abs(sin_th[ok]) * speed)
     return t
 
 
@@ -292,7 +306,7 @@ def main():
     x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
     colors = np.array([risk_color(r) for r in R])
     print(f"grid points kept: {len(x)} (Δx=1m, Δy=1m, Δθ=15°; θ=0 is +Y)")
-    print(f"weights: wp={W_P}, wc={W_C}, wd={W_D}; path TTC=cross only s~|x|/|sin(theta)|; d<={D_MAX}")
+    print(f"weights: w_time={W_TIME}, wd={W_D}; pick Rp if {PTTC_COMPARE}*Rp>=Rc else Rc; d<={D_MAX}")
 
     # ---- 3D ----
     fig3d = plt.figure(figsize=(8.5, 6.5), dpi=150)

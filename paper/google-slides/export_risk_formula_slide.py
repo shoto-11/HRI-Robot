@@ -79,11 +79,12 @@ def draw_formula_slide_png() -> Path:
     )
     card(
         (40, 518, 940, 700),
-        "③ 統合スコア R（重み付き和）",
+        "③ 統合スコア R（時間系の勝者 + 近接）",
         [
-            ("eq", "R = min(1,  wp·Rp + wc·Rc + wd·Rd)"),
-            ("body", "wp=0.55（迫り）　wc=0.30（視線横断）　wd=0.15（近接は保険）"),
-            ("small", "Rfloor なし　／　max ではなく和 → 複合危険を加算"),
+            ("eq", "Rtime = Rp  if  2·Rp ≥ Rc   else  Rc"),
+            ("eq", "R = 0.85 · Rtime  +  0.15 · Rd"),
+            ("body", "×2 は判定のみ（スコア本体には掛けない）　／　近接は保険"),
+            ("small", "PTTC と path TTC は同時最大になりにくい → 和ではなく勝者を採用"),
         ],
         (140, 50, 50),
     )
@@ -135,9 +136,9 @@ def draw_formula_slide_png() -> Path:
         "主要パラメータ",
         [
             ("body", "Tmax = 4.0 s（正規化のみ）　Dmax = 13.6 m（表示＋Rd）"),
-            ("body", "γ = 0.6　wp/wc/wd = 0.55 / 0.30 / 0.15（Rfloor なし）"),
+            ("body", "γ = 0.6　wt/wd = 0.85 / 0.15　比較係数 2（判定のみ）"),
             ("body", "vAGV,max = 2.0 m/s　vped = 1.4 m/s　w = 0.5 m"),
-            ("small", "表示ゲートは距離のみ　／　スコアは Tp+Tc+d の重み付き和"),
+            ("small", "表示ゲートは距離のみ　／　スコアは winner(Rp,Rc)+近接"),
         ],
         (50, 70, 90),
     )

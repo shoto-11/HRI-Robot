@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// PTTC（人への閉じ込み）・経路 TTC（視線基準線）・近接距離の重み付き和で危険度を算出する。
+/// PTTC と path TTC の大きい方（比較時のみ PTTC×2）を 0.85、近接を 0.15 で合成する。
 /// 経路表示可否は距離ゲート（d ≤ D_max）のみ。
 /// </summary>
 public class VehicleRiskCalculator : MonoBehaviour
@@ -14,10 +14,11 @@ public class VehicleRiskCalculator : MonoBehaviour
 
     public bool SkipScoring;
 
-    [Header("融合重み（正規化はしない。和が 1 を超えたら clamp）")]
-    [SerializeField] float weightPttc = 0.55f;
-    [SerializeField] float weightPathTtc = 0.30f;
+    [Header("融合（時間系の勝者 × wTime + 近接 × wProx）")]
+    [SerializeField] float weightTime = 0.85f;
     [SerializeField] float weightProximity = 0.15f;
+    [Tooltip("勝ち負け判定のみ。スコア本体には掛けない。2·Rp ≥ Rc なら Rp を採用。")]
+    [SerializeField] float pttcCompareFactor = 2f;
 
     const float TTC_MAX = FactoryLayout.EhmiTtcMaxSeconds;
     const float DISPLAY_DISTANCE_MAX = FactoryLayout.DisplayDistanceMax;
@@ -65,8 +66,9 @@ public class VehicleRiskCalculator : MonoBehaviour
             ? 0f
             : Mathf.Pow(Mathf.Clamp01(1f - d / DISPLAY_DISTANCE_MAX), GAMMA);
 
-        float r = weightPttc * rp + weightPathTtc * rc + weightProximity * rd;
-        currentScore = Mathf.Clamp01(r);
+        // ×pttcCompareFactor は判定のみ。勝った方の素のスコアを使う。
+        float timeRisk = (pttcCompareFactor * rp >= rc) ? rp : rc;
+        currentScore = Mathf.Clamp01(weightTime * timeRisk + weightProximity * rd);
     }
 
     static float HorizontalDistance(Vector3 a, Vector3 b)

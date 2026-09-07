@@ -57,7 +57,7 @@ f_small = font(18)
 draw.text((80, 48), "危険度スコア R ごとの経路表示（色・不透明度）", fill=(20, 20, 20), font=f_title)
 draw.text(
     (80, 110),
-    "R = min(1, 0.55Rp+0.30Rc+0.15Rd)　→　RiskToVisualMapper",
+    "R = 0.85·winner(Rp,Rc)+0.15·Rd　→　RiskToVisualMapper",
     fill=(90, 90, 90),
     font=f_sub,
 )
@@ -150,7 +150,7 @@ svg_parts = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">',
     '<rect width="1920" height="1080" fill="#ffffff"/>',
     '<text x="80" y="80" font-family="Meiryo, Yu Gothic, sans-serif" font-size="44" fill="#141414">危険度スコア R ごとの経路表示（色・不透明度）</text>',
-    '<text x="80" y="125" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">R = min(1, 0.55Rp+0.30Rc+0.15Rd)　→　RiskToVisualMapper</text>',
+    '<text x="80" y="125" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">R = 0.85·winner(Rp,Rc)+0.15·Rd　→　RiskToVisualMapper</text>',
     '<text x="80" y="160" font-family="Meiryo, Yu Gothic, sans-serif" font-size="22" fill="#5a5a5a">α = 0.35 + 0.65R　　H = (1−R)×180°　　S = 0.4+0.6R　　V = 0.5+0.3R</text>',
     '<defs><pattern id="chk" width="14" height="14" patternUnits="userSpaceOnUse">',
     '<rect width="14" height="14" fill="#ffffff"/><rect width="7" height="7" fill="#dcdcdc"/><rect x="7" y="7" width="7" height="7" fill="#dcdcdc"/>',
