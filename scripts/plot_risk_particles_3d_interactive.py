@@ -138,13 +138,24 @@ def main(open_browser: bool = True):
     }}
     #bar button.active {{ background: #1f4e79; color: #fff; border-color: #1f4e79; }}
     #bar button:hover {{ filter: brightness(0.97); }}
-    #plot {{ width: 100%; height: calc(100% - 52px); }}
+    #bar .sep {{ width: 1px; height: 22px; background: #ccc; margin: 0 2px; }}
+    #bar .ex-btns {{ display: flex; gap: 6px; align-items: center; }}
+    #bar .ex-btns button {{ min-width: 2.4em; font-weight: 600; }}
+    #bar .ex-btns button:not(.active) {{ opacity: 0.55; }}
+    #plot {{ width: 100%; height: calc(100% - 56px); }}
   </style>
 </head>
 <body>
   <div id="bar">
     <h1>危険度 R の 3D 粒子</h1>
     <button id="btnRotate" type="button" title="カメラを自動回転">▶ 自動回転</button>
+    <div class="sep" aria-hidden="true"></div>
+    <div class="ex-btns" title="例示点 A/B/C の表示切替">
+      <span style="font-size:12px;color:#555;">例示</span>
+      <button id="btnExA" type="button" class="active" data-ex="A">A</button>
+      <button id="btnExB" type="button" class="active" data-ex="B">B</button>
+      <button id="btnExC" type="button" class="active" data-ex="C">C</button>
+    </div>
     <span>R=0.55·Rp+0.30·Rc+0.15·Rd（相対PTTC）　／　ドラッグで回転・ズーム　／　α=0.35+0.65R　／　N=<span id="n"></span></span>
   </div>
   <div id="plot"></div>
@@ -171,11 +182,13 @@ def main(open_browser: bool = True):
     }}));
 
     // examples: one point per trace so each keeps its own α
+    const exTraceIndex = {{}};  // name → index in traces[]
     DATA.ex.names.forEach((name, i) => {{
+      exTraceIndex[name] = traces.length;
       traces.push({{
         type: 'scatter3d',
         mode: 'markers+text',
-        name: name,
+        name: '例 ' + name,
         x: [DATA.ex.x[i]],
         y: [DATA.ex.y[i]],
         z: [DATA.ex.theta[i]],
@@ -190,7 +203,8 @@ def main(open_browser: bool = True):
           opacity: DATA.ex.alphas[i],
           line: {{ width: 1, color: '#111' }},
         }},
-        showlegend: false,
+        showlegend: true,
+        visible: true,
       }});
     }});
 
@@ -285,6 +299,21 @@ def main(open_browser: bool = True):
 
     btn.addEventListener('click', () => setRotating(!rotating));
 
+    const exVisible = {{ A: true, B: true, C: true }};
+    function setExampleVisible(name, on) {{
+      exVisible[name] = on;
+      const idx = exTraceIndex[name];
+      if (idx === undefined) return;
+      const btnEl = document.getElementById('btnEx' + name);
+      if (btnEl) btnEl.classList.toggle('active', on);
+      Plotly.restyle(plot, {{ visible: on }}, [idx]);
+    }}
+    ['A', 'B', 'C'].forEach(name => {{
+      const el = document.getElementById('btnEx' + name);
+      if (!el) return;
+      el.addEventListener('click', () => setExampleVisible(name, !exVisible[name]));
+    }});
+
     Plotly.newPlot(plot, traces, layout, config).then(() => {{
       // 自分の自動回転による relayout は無視。ユーザー操作だけ停止。
       plot.on('plotly_relayout', () => {{
@@ -295,7 +324,7 @@ def main(open_browser: bool = True):
       plot.addEventListener('pointerdown', (e) => {{
         if (!rotating) return;
         if (e.target && e.target.closest && e.target.closest('.modebar')) return;
-        if (e.target === btn) return;
+        if (e.target === btn || (e.target.closest && e.target.closest('.ex-btns'))) return;
         setRotating(false);
       }}, true);
     }});
