@@ -189,7 +189,6 @@ public class VehicleRiskCalculator : MonoBehaviour
     const float TTC_MAX = 4f;
     const float DISPLAY_DISTANCE_MAX = 25f;
     const float GAMMA = 0.6f;
-    const float SCORE_FLOOR = 0.08f;
 
     void Update()
     {
@@ -211,7 +210,7 @@ public class VehicleRiskCalculator : MonoBehaviour
             ? 0f
             : Mathf.Pow(Mathf.Clamp01(1f - ttc / TTC_MAX), GAMMA);
 
-        currentScore = Mathf.Max(SCORE_FLOOR, r);
+        currentScore = Mathf.Clamp01(r);
     }
 
     float ComputeTTCAlongPath(Vector3 lineStart, Vector3 lineEnd)
@@ -312,7 +311,6 @@ public class VehicleRiskCalculator : MonoBehaviour
 | $TTC_{max}$           | 4秒                      | eHMI仕様書    |
 | $D_{display}$         | 25m                     | eHMI仕様書    |
 | $\gamma$              | 0.6                     | eHMI仕様書    |
-| $R_{floor}$           | 0.08                    | eHMI仕様書    |
 | 不透明度量子化               | 連続（$\alpha = 0.35 + 0.65R$） | 提案手法更新 |
 | 色相                    | 赤(0°)〜薄青緑(180°)         | eHMI仕様書    |
 | 走行中の根元の太さ             | 0.3m                    | eHMI仕様書    |
