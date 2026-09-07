@@ -58,9 +58,8 @@ def paint_alpha(img: Image.Image, box, rgb, a, tile=14):
 
 
 def ensure_slide_png() -> Path:
+    """Always regenerate so PPTX stays in sync with current R formula."""
     path = OUT / "risk_appearance_slide_16x9.png"
-    if path.exists():
-        return path
 
     W, H = 1920, 1080
     img = Image.new("RGB", (W, H), (255, 255, 255))
@@ -69,7 +68,7 @@ def ensure_slide_png() -> Path:
     draw.text((80, 48), "危険度スコア R ごとの経路表示（色・不透明度）", fill=(20, 20, 20), font=f_title)
     draw.text(
         (80, 110),
-        "R = min(1, 0.55Rp+0.30Rc+0.15Rd) → RiskToVisualMapper",
+        "R = min(1, 0.55Rp+0.30Rc+0.15Rd) → RiskToVisualMapper ／ Rfloorなし ／ PTTCは相対速度",
         fill=(90, 90, 90),
         font=f_sub,
     )
@@ -81,7 +80,7 @@ def ensure_slide_png() -> Path:
     )
     draw.text(
         (80, 180),
-        "上段：色のみ（不透明）　／　下段：不透明度込み（市松模様の上）",
+        "上段：色のみ（不透明）　／　下段：不透明度込み（市松模様の上）　／　表示は d≤13.6 m のみ",
         fill=(90, 90, 90),
         font=f_sub,
     )
