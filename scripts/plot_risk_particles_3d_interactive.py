@@ -18,9 +18,9 @@ import numpy as np
 from plot_risk_particles_3d import (
     DEFAULT_SPEED,
     D_MAX,
-    PTTC_COMPARE,
+    W_C,
     W_D,
-    W_TIME,
+    W_P,
     build_grid,
     risk_color,
     score_pose,
@@ -109,9 +109,9 @@ def main(open_browser: bool = True):
             "names": ex_names,
         },
         "meta": {
-            "w_time": W_TIME,
+            "wp": W_P,
+            "wc": W_C,
             "wd": W_D,
-            "pttc_compare": PTTC_COMPARE,
             "dmax": D_MAX,
             "speed": DEFAULT_SPEED,
             "n": int(len(x)),
@@ -145,7 +145,7 @@ def main(open_browser: bool = True):
   <div id="bar">
     <h1>危険度 R の 3D 粒子</h1>
     <button id="btnRotate" type="button" title="カメラを自動回転">▶ 自動回転</button>
-    <span>R=0.85·winner(Rp vs Rc, 判定のみ×2)+0.15·近接　／　ドラッグで回転・ズーム　／　α=0.35+0.65R　／　N=<span id="n"></span></span>
+    <span>R=0.55·Rp+0.30·Rc+0.15·Rd（相対PTTC）　／　ドラッグで回転・ズーム　／　α=0.35+0.65R　／　N=<span id="n"></span></span>
   </div>
   <div id="plot"></div>
   <script>

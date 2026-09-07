@@ -8,7 +8,7 @@
 \begin{enumerate}[leftmargin=2em]
   \item 参加者の視線方向から\textbf{動的基準線}（太線ゾーン）を更新
   \item 人へのPTTC $T_p$，経路--基準線TTC $T_c$，水平距離 $d$ を算出
-  \item 時間系の勝者（比較時のみ $2R_p$）と近接の重み付き和で危険度スコア $R \in [0,1]$ を計算（表示は $d\le D_\text{max}$ のみ）
+  \item 重み付き和で危険度スコア $R \in [0,1]$ を計算（表示は $d\le D_\text{max}$ のみ）
   \item $R$ を色相・彩度・明度・不透明度に変換し，経路（または停止線）を描画
 \end{enumerate}
 
@@ -38,19 +38,14 @@ $T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}=(v_\text{AGV,max}+v_\tex
 人へのPTTC $T_p=d/v_\text{close}$（$v_\text{close}=\max(0,\hat{\mathbf{r}}\cdot(\mathbf{v}_\text{AGV}-\mathbf{v}_\text{ped}))$；近づかないとき $\infty$），
 経路--基準線TTC $T_c=s/\max(v,0.1)$，水平距離 $d$．
 
-\paragraph{統合（時間系の勝者 + 近接）}
+\paragraph{統合（重み付き和）}
 \begin{align}
   R_p &= f(T_p),\quad R_c=f(T_c),\quad
   R_d=(1-d/D_\text{max})^{\gamma}\ \text{（$d\ge D_\text{max}$ なら $0$）} \\[2pt]
   f(T) &= (1-T/T_\text{max})^{\gamma}\ \text{（$T=\infty$ または $T>T_\text{max}$ なら $0$）} \\[2pt]
-  R_{\mathrm{time}} &=
-  \begin{cases}
-  R_p & 2 R_p \ge R_c \\
-  R_c & \text{otherwise}
-  \end{cases},\quad
-  R = w_t R_{\mathrm{time}} + w_d R_d
+  R &= \min(1,\, w_p R_p + w_c R_c + w_d R_d)
 \end{align}
-$\gamma=0.6$，$w_t=0.85$，$w_d=0.15$。係数 $2$ は勝ち負け判定のみ（スコア本体には掛けない）。
+$\gamma=0.6$，$w_p=0.55$，$w_c=0.30$，$w_d=0.15$。PTTC は相対速度 $\mathbf{v}_\text{AGV}-\mathbf{v}_\text{ped}$。
 
 \subsection{視覚マッピング（Proposedのみ）}
 

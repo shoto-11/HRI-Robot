@@ -13,8 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 T_MAX, D_MAX, GAMMA = 4.0, 13.6, 0.6
-W_TIME, W_D = 0.85, 0.15
-PTTC_COMPARE = 2.0  # comparison only: prefer Rp when 2*Rp >= Rc
+W_P, W_C, W_D = 0.55, 0.30, 0.15
 V_CLOSE_EPS = 0.05
 DEFAULT_SPEED = 2.0
 # Pedestrian walks +Y (gaze forward) in the plot frame unless overridden.
@@ -39,16 +38,13 @@ def time_to_score(t: float) -> float:
 
 
 def score_from_times(d: float, tp: float, tc: float) -> float:
-    """Display gate: d ≤ D_max.
-    R = w_time * (Rp if 2·Rp ≥ Rc else Rc) + w_d · Rd.
-    """
+    """Display gate: d ≤ D_max. R = clamp(wp·Rp + wc·Rc + wd·Rd, 0, 1)."""
     if d > D_MAX:
         return 0.0
     rp = time_to_score(tp)
     rc = time_to_score(tc)
     rd = 0.0 if d >= D_MAX else max(0.0, 1.0 - d / D_MAX) ** GAMMA
-    time_risk = rp if (PTTC_COMPARE * rp >= rc) else rc
-    return float(np.clip(W_TIME * time_risk + W_D * rd, 0.0, 1.0))
+    return float(np.clip(W_P * rp + W_C * rc + W_D * rd, 0.0, 1.0))
 
 
 def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED, ped_speed=DEFAULT_PED_SPEED):
@@ -313,7 +309,7 @@ def main():
     x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
     colors = np.array([risk_color(r) for r in R])
     print(f"grid points kept: {len(x)} (Δx=1m, Δy=1m, Δθ=15°; θ=0 is +Y)")
-    print(f"weights: w_time={W_TIME}, wd={W_D}; pick Rp if {PTTC_COMPARE}*Rp>=Rc else Rc; d<={D_MAX}")
+    print(f"weights: wp={W_P}, wc={W_C}, wd={W_D}; relative PTTC; d<={D_MAX}")
 
     # ---- 3D ----
     fig3d = plt.figure(figsize=(8.5, 6.5), dpi=150)
