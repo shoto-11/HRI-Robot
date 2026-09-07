@@ -11,7 +11,9 @@
 | `risk_appearance.pptx` | 見た目サンプル（全7枚） |
 | `risk_appearance_slide_16x9.png` | 見た目サンプル（1枚画像） |
 | `risk_particles_*.png` | 姿勢空間の危険度粒子グラフ（静止画） |
-| **`risk_particles_3d_interactive.html`** | **3D をドラッグで回転・ズーム（ブラウザ）** |
+| `risk_particles_3d_interactive.html` | **3D をドラッグで回転・ズーム（ブラウザ）** |
+| `risk_particles_ablation_Rp_vs_Rc.png` | 重み比較（Rpのみ vs Rcのみ） |
+| `risk_particles_3d_Rp_only.html` / `_Rc_only.html` | 同上のインタラクティブ版 |
 
 ## 研究課題スライドの内容
 

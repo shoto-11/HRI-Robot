@@ -37,14 +37,21 @@ def time_to_score(t: float) -> float:
     return max(0.0, 1.0 - t / T_MAX) ** GAMMA
 
 
-def score_from_times(d: float, tp: float, tc: float) -> float:
+def score_from_times(
+    d: float,
+    tp: float,
+    tc: float,
+    wp: float = W_P,
+    wc: float = W_C,
+    wd: float = W_D,
+) -> float:
     """Display gate: d ≤ D_max. R = clamp(wp·Rp + wc·Rc + wd·Rd, 0, 1)."""
     if d > D_MAX:
         return 0.0
     rp = time_to_score(tp)
     rc = time_to_score(tc)
     rd = 0.0 if d >= D_MAX else max(0.0, 1.0 - d / D_MAX) ** GAMMA
-    return float(np.clip(W_P * rp + W_C * rc + W_D * rd, 0.0, 1.0))
+    return float(np.clip(wp * rp + wc * rc + wd * rd, 0.0, 1.0))
 
 
 def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED, ped_speed=DEFAULT_PED_SPEED):
@@ -99,14 +106,23 @@ def estimate_path_ttc(x, y, theta, speed=DEFAULT_SPEED):
     return t
 
 
-def score_pose(x, y, theta, speed=DEFAULT_SPEED) -> float:
+def score_pose(
+    x, y, theta, speed=DEFAULT_SPEED, wp: float = W_P, wc: float = W_C, wd: float = W_D
+) -> float:
     d = float(np.hypot(x, y))
     tp = float(estimate_pttc(x, y, theta, speed))
     tc = float(estimate_path_ttc(x, y, theta, speed))
-    return score_from_times(d, tp, tc)
+    return score_from_times(d, tp, tc, wp=wp, wc=wc, wd=wd)
 
 
-def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
+def build_grid(
+    dx=1.0,
+    dy=1.0,
+    dtheta=30.0,
+    wp: float = W_P,
+    wc: float = W_C,
+    wd: float = W_D,
+):
     """Evenly spaced lattice in (x, y, θ)."""
     xs = np.arange(-15.0, 15.0 + 1e-9, dx)
     ys = np.arange(-15.0, 15.0 + 1e-9, dy)
@@ -118,7 +134,12 @@ def build_grid(dx=1.0, dy=1.0, dtheta=30.0):
     d = np.hypot(x, y)
     tp = estimate_pttc(x, y, theta)
     tc = estimate_path_ttc(x, y, theta)
-    R = np.array([score_from_times(di, tpi, tci) for di, tpi, tci in zip(d, tp, tc)])
+    R = np.array(
+        [
+            score_from_times(di, tpi, tci, wp=wp, wc=wc, wd=wd)
+            for di, tpi, tci in zip(d, tp, tc)
+        ]
+    )
     keep = R > 0
     return x[keep], y[keep], theta[keep], R[keep]
 
@@ -296,6 +317,36 @@ def save_slice_overview_3d(x, y, theta, colors, examples):
     plt.close(fig)
 
 
+def save_weight_ablation(examples):
+    """Side-by-side 3D: (wp,wc,wd)=(1,0,0) vs (0,1,0)."""
+    configs = [
+        ((1.0, 0.0, 0.0), "Wp=1, Wc=0, Wd=0  (Rp only)"),
+        ((0.0, 1.0, 0.0), "Wp=0, Wc=1, Wd=0  (Rc only)"),
+    ]
+    fig = plt.figure(figsize=(14, 6.2), dpi=150)
+    for i, ((wp, wc, wd), title) in enumerate(configs):
+        x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0, wp=wp, wc=wc, wd=wd)
+        colors = np.array([risk_color(r) for r in R])
+        ax = fig.add_subplot(1, 2, i + 1, projection="3d")
+        ax.scatter(x, y, theta, c=colors, s=6, linewidths=0, depthshade=False, rasterized=True)
+        for name, (xi, yi, thi) in examples.items():
+            Ri = score_pose(xi, yi, thi, wp=wp, wc=wc, wd=wd)
+            ax.scatter([xi], [yi], [thi], c=[risk_color(Ri)], s=70, edgecolors="k", linewidths=0.6)
+            ax.text(xi, yi, thi, f"  {name} R={Ri:.2f}", fontsize=7)
+        ax.set_xlabel("x (m)")
+        ax.set_ylabel("y (m)")
+        ax.set_zlabel("θ (°)")
+        ax.set_title(f"{title}\nN={len(R)}", fontsize=11)
+        ax.view_init(elev=22, azim=-58)
+        print(f"ablation {title}: N={len(R)}")
+        for name, (xi, yi, thi) in examples.items():
+            print(f"  {name}: R={score_pose(xi, yi, thi, wp=wp, wc=wc, wd=wd):.3f}")
+    fig.suptitle("Weight ablation: Rp-only vs Rc-only (same grid / mapper)", fontsize=13)
+    fig.tight_layout()
+    save_fig(fig, "risk_particles_ablation_Rp_vs_Rc")
+    plt.close(fig)
+
+
 def main():
     # (x, y, θ); θ=0 is +Y (same as worker). Approach from front = 180°.
     # Three canonical poses (closer so R/color differences are visible):
@@ -305,6 +356,8 @@ def main():
         B=(3.0, 2.5, -90.0),    # cross in front, pure lateral
         C=(1.0, 0.3, 0.0),      # nearby
     )
+
+    save_weight_ablation(examples)
 
     x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
     colors = np.array([risk_color(r) for r in R])

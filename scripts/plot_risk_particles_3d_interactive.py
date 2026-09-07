@@ -43,8 +43,15 @@ def rgb_css(rgba) -> str:
     return f"rgb({int(r * 255)},{int(g * 255)},{int(b * 255)})"
 
 
-def main(open_browser: bool = True):
-    x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0)
+def main(
+    open_browser: bool = True,
+    wp: float = W_P,
+    wc: float = W_C,
+    wd: float = W_D,
+    out_html: Path | None = None,
+):
+    out_path = out_html or OUT_HTML
+    x, y, theta, R = build_grid(dx=1.0, dy=1.0, dtheta=15.0, wp=wp, wc=wc, wd=wd)
     x = np.asarray(x)
     y = np.asarray(y)
     theta = np.asarray(theta)
@@ -82,7 +89,7 @@ def main(open_browser: bool = True):
     )
     ex_x, ex_y, ex_th, ex_c, ex_s, ex_a, ex_t, ex_names = [], [], [], [], [], [], [], []
     for name, (xi, yi, thi) in examples.items():
-        Ri = score_pose(xi, yi, thi)
+        Ri = score_pose(xi, yi, thi, wp=wp, wc=wc, wd=wd)
         col = risk_color(Ri)
         alpha = float(col[3])
         ex_x.append(xi)
@@ -109,21 +116,23 @@ def main(open_browser: bool = True):
             "names": ex_names,
         },
         "meta": {
-            "wp": W_P,
-            "wc": W_C,
-            "wd": W_D,
+            "wp": wp,
+            "wc": wc,
+            "wd": wd,
             "dmax": D_MAX,
             "speed": DEFAULT_SPEED,
             "n": int(len(x)),
         },
     }
 
+    weight_label = f"R={wp:g}·Rp+{wc:g}·Rc+{wd:g}·Rd"
+
     html = f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Risk particles 3D (interactive)</title>
+  <title>Risk particles 3D — {weight_label}</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     html, body {{ margin: 0; height: 100%; background: #e8e8ec; color: #222;
@@ -156,7 +165,7 @@ def main(open_browser: bool = True):
       <button id="btnExB" type="button" class="active" data-ex="B">B</button>
       <button id="btnExC" type="button" class="active" data-ex="C">C</button>
     </div>
-    <span>R=0.55·Rp+0.30·Rc+0.15·Rd（相対PTTC）　／　ドラッグで回転・ズーム　／　α=0.35+0.65R　／　N=<span id="n"></span></span>
+    <span>{weight_label}（相対PTTC）　／　ドラッグで回転・ズーム　／　α=0.35+0.65R　／　N=<span id="n"></span></span>
   </div>
   <div id="plot"></div>
   <script>
@@ -334,12 +343,27 @@ def main(open_browser: bool = True):
 """
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    OUT_HTML.write_text(html, encoding="utf-8")
-    print(f"wrote {OUT_HTML}")
-    print(f"points: {len(x)} in {len(bins)} opacity bins")
+    out_path.write_text(html, encoding="utf-8")
+    print(f"wrote {out_path}")
+    print(f"points: {len(x)} in {len(bins)} opacity bins; wp={wp:g} wc={wc:g} wd={wd:g}")
     if open_browser:
-        webbrowser.open(OUT_HTML.resolve().as_uri())
+        webbrowser.open(out_path.resolve().as_uri())
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    p = argparse.ArgumentParser(description="Interactive 3D risk particles")
+    p.add_argument("--wp", type=float, default=W_P)
+    p.add_argument("--wc", type=float, default=W_C)
+    p.add_argument("--wd", type=float, default=W_D)
+    p.add_argument("--out", type=Path, default=None)
+    p.add_argument("--no-browser", action="store_true")
+    args = p.parse_args()
+    main(
+        open_browser=not args.no_browser,
+        wp=args.wp,
+        wc=args.wc,
+        wd=args.wd,
+        out_html=args.out,
+    )
