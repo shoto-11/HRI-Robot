@@ -27,25 +27,62 @@ AGV経路との交差判定に用いる．
 
 \subsection{危険度スコア $R$}
 
-\paragraph{表示可否}
-表示ゲートは水平距離のみとする（$T_\text{max}$ はスコア正規化専用）．
+表示ゲートと三要因（$R_p$，$R_c$，$R_d$）を別々に定義し，最後に重み付き和で統合する．
+設計パラメータは $T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}=(v_\text{AGV,max}+v_\text{ped})\times T_\text{max}$，$\gamma=0.6$ とする．
+
+\subsubsection{表示可否}
+表示ゲートは水平距離のみとする（$T_\text{max}$ は時間スコアの正規化専用）．
 \begin{equation}
   \text{visible} = (d \le D_\text{max})
 \end{equation}
-$T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}=(v_\text{AGV,max}+v_\text{ped})\times T_\text{max}$．
+$\text{visible}=\mathrm{false}$ のとき $R=0$ とし，経路は描画しない．
 
-\paragraph{三要因}
-人へのPTTC $T_p=d/v_\text{close}$（$v_\text{close}=\max(0,\hat{\mathbf{r}}\cdot(\mathbf{v}_\text{AGV}-\mathbf{v}_\text{ped}))$；近づかないとき $\infty$），
-Crossing TTC（CTTC）$T_c=s/\max(v,0.1)$，水平距離 $d$．
+\subsubsection{$R_p$：PTTC（人への迫り）}
+AGVと歩行者の相対運動から，現在の閉じ込みが続けば何秒で距離がゼロになるかを見積もる．
+相対位置 $\mathbf{r}$（水平）と相対速度 $\mathbf{v}_\text{rel}=\mathbf{v}_\text{AGV}-\mathbf{v}_\text{ped}$ に対し
+\begin{equation}
+  v_\text{close}=\max\!\bigl(0,\,\hat{\mathbf{r}}\cdot\mathbf{v}_\text{rel}\bigr),\qquad
+  T_p=
+  \begin{cases}
+  \infty & v_\text{close}\approx 0 \\
+  d/v_\text{close} & \text{それ以外}
+  \end{cases}
+\end{equation}
+とする．正面からこちらへ向かうほど $T_p$ が短くなり $R_p$ が高い．遠ざかる・すれ違うだけでは上がりにくい．
+\begin{equation}
+  R_p=f(T_p),\qquad
+  f(T)=(1-T/T_\text{max})^{\gamma}
+  \quad\text{（$T=\infty$ または $T>T_\text{max}$ なら $0$）}
+\end{equation}
 
-\paragraph{統合（重み付き和）}
-\begin{align}
-  R_p &= f(T_p),\quad R_c=f(T_c),\quad
-  R_d=(1-d/D_\text{max})^{\gamma}\ \text{（$d\ge D_\text{max}$ なら $0$）} \\[2pt]
-  f(T) &= (1-T/T_\text{max})^{\gamma}\ \text{（$T=\infty$ または $T>T_\text{max}$ なら $0$）} \\[2pt]
-  R &= \min(1,\, w_p R_p + w_c R_c + w_d R_d)
-\end{align}
-$\gamma=0.6$，$w_p=0.55$，$w_c=0.30$，$w_d=0.15$。PTTC は相対速度 $\mathbf{v}_\text{AGV}-\mathbf{v}_\text{ped}$。
+\subsubsection{$R_c$：Crossing TTC / CTTC（視線帯の横断）}
+AGVの\textbf{計画経路}を現在速度 $v$ で進んだとき，視線の太線ゾーンに最初に達するまでの時間である．
+経路に沿った道のりを $s$ として
+\begin{equation}
+  T_c=\frac{s}{\max(v,\,0.1)}
+  \quad\text{（交差なし，または $T_c>T_\text{max}$ なら $\infty$）}
+\end{equation}
+と定義し，$R_c=f(T_c)$ とする．
+人へ直進していなくても，前方を横切る経路なら高くなる．横断リスクを拾うための指標である．
+
+\subsubsection{$R_d$：近接}
+向きや経路に依存せず，人とAGVの水平距離 $d$ のみから決める．
+\begin{equation}
+  R_d=
+  \begin{cases}
+  0 & d \ge D_\text{max} \\
+  (1-d/D_\text{max})^{\gamma} & d < D_\text{max}
+  \end{cases}
+\end{equation}
+近いほど高く，$R_p$・$R_c$ が小さいときの下支えとなる．
+
+\subsubsection{統合（重み付き和）}
+三要因を重み付き和で合成する．
+\begin{equation}
+  R=\min\!\bigl(1,\, w_p R_p + w_c R_c + w_d R_d\bigr)
+\end{equation}
+初期の融合重みは $w_p=0.55$（迫り），$w_c=0.30$（横断），$w_d=0.15$（近接は保険）とする．
+不透明度の下限は視覚マッピング側の $\alpha_{\min}=0.35$ で担保し，$R_\text{floor}$ は用いない．
 
 \subsection{視覚マッピング（Proposedのみ）}
 
