@@ -17,6 +17,8 @@ W_TIME, W_D = 0.85, 0.15
 PTTC_COMPARE = 2.0  # comparison only: prefer Rp when 2*Rp >= Rc
 V_CLOSE_EPS = 0.05
 DEFAULT_SPEED = 2.0
+# Pedestrian walks +Y (gaze forward) in the plot frame unless overridden.
+DEFAULT_PED_SPEED = 1.4
 OUT_DIR = Path(__file__).resolve().parent.parent / "paper" / "google-slides"
 
 
@@ -49,8 +51,10 @@ def score_from_times(d: float, tp: float, tc: float) -> float:
     return float(np.clip(W_TIME * time_risk + W_D * rd, 0.0, 1.0))
 
 
-def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
-    """PTTC to worker at origin. θ=0 is +Y. r = -pos, v_close = max(0, r̂·v)."""
+def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED, ped_speed=DEFAULT_PED_SPEED):
+    """PTTC with relative velocity. Worker at origin walks +Y at ped_speed.
+    r = -pos (AGV→worker), v_rel = v_AGV − v_ped, v_close = r̂·v_rel.
+    """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     theta = np.asarray(theta, dtype=float)
@@ -61,9 +65,12 @@ def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
     ok = ~near
     move_x = np.sin(np.deg2rad(theta)) * speed
     move_y = np.cos(np.deg2rad(theta)) * speed
-    # r_hat = (-x, -y) / d  →  r_hat · v = -(x vx + y vy) / d
+    # v_ped = (0, ped_speed); v_rel = v_agv - v_ped
+    rel_x = move_x
+    rel_y = move_y - float(ped_speed)
+    # r_hat = (-x, -y) / d  →  r_hat · v_rel = -(x rel_x + y rel_y) / d
     v_close = np.zeros_like(d)
-    v_close[ok] = -(x[ok] * move_x[ok] + y[ok] * move_y[ok]) / d[ok]
+    v_close[ok] = -(x[ok] * rel_x[ok] + y[ok] * rel_y[ok]) / d[ok]
     closing = ok & (v_close >= V_CLOSE_EPS)
     t[closing] = d[closing] / v_close[closing]
     return t

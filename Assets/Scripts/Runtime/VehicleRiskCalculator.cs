@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// PTTC と path TTC の大きい方（比較時のみ PTTC×2）を 0.85、近接を 0.15 で合成する。
+/// PTTC（相対速度）と path TTC の大きい方（比較時のみ PTTC×2）を 0.85、近接を 0.15 で合成する。
 /// 経路表示可否は距離ゲート（d ≤ D_max）のみ。
 /// </summary>
 public class VehicleRiskCalculator : MonoBehaviour
@@ -24,6 +24,8 @@ public class VehicleRiskCalculator : MonoBehaviour
     const float DISPLAY_DISTANCE_MAX = FactoryLayout.DisplayDistanceMax;
     const float GAMMA = 0.6f;
     const float V_CLOSE_EPS = 0.05f;
+
+    PlayerLocomotion _pedestrianLocomotion;
 
     public bool IsStopped => agv != null && agv.IsStopped;
 
@@ -78,7 +80,19 @@ public class VehicleRiskCalculator : MonoBehaviour
         return Vector3.Distance(a, b);
     }
 
-    /// <summary>人への PTTC: d / v_close。近づかないときは ∞。</summary>
+    Vector3 GetPedestrianVelocity()
+    {
+        if (_pedestrianLocomotion == null && crossingLine != null)
+            _pedestrianLocomotion = crossingLine.GetComponentInParent<PlayerLocomotion>();
+        if (_pedestrianLocomotion != null)
+            return _pedestrianLocomotion.HorizontalVelocity;
+        return Vector3.zero;
+    }
+
+    /// <summary>
+    /// 人への PTTC: d / v_close。
+    /// v_close = r̂ · (v_AGV − v_ped)（相対速度の閉じ込み成分）。近づかないときは ∞。
+    /// </summary>
     float ComputePttc(Vector3 pedestrianPos)
     {
         Vector3 r = pedestrianPos - transform.position;
@@ -86,9 +100,13 @@ public class VehicleRiskCalculator : MonoBehaviour
         float dist = r.magnitude;
         if (dist < 1e-4f) return 0f;
 
-        Vector3 v = agv.Velocity;
-        v.y = 0f;
-        float vClose = Vector3.Dot(r.normalized, v);
+        Vector3 vAgv = agv.Velocity;
+        vAgv.y = 0f;
+        Vector3 vPed = GetPedestrianVelocity();
+        vPed.y = 0f;
+        Vector3 vRel = vAgv - vPed;
+
+        float vClose = Vector3.Dot(r.normalized, vRel);
         if (vClose < V_CLOSE_EPS) return Mathf.Infinity;
 
         return dist / vClose;

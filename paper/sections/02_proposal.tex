@@ -35,7 +35,7 @@ AGV経路との交差判定に用いる．
 $T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}=(v_\text{AGV,max}+v_\text{ped})\times T_\text{max}$．
 
 \paragraph{三要因}
-人へのPTTC $T_p=d/v_\text{close}$（$v_\text{close}=\max(0,\hat{\mathbf{r}}\cdot\mathbf{v})$；近づかないとき $\infty$），
+人へのPTTC $T_p=d/v_\text{close}$（$v_\text{close}=\max(0,\hat{\mathbf{r}}\cdot(\mathbf{v}_\text{AGV}-\mathbf{v}_\text{ped}))$；近づかないとき $\infty$），
 経路--基準線TTC $T_c=s/\max(v,0.1)$，水平距離 $d$．
 
 \paragraph{統合（時間系の勝者 + 近接）}

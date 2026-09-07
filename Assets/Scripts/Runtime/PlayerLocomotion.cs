@@ -18,6 +18,9 @@ public class PlayerLocomotion : MonoBehaviour
 
     public float MoveSpeed => moveSpeed;
 
+    /// <summary>水平移動速度（m/s）。PTTC の相対速度計算用。</summary>
+    public Vector3 HorizontalVelocity => _horizontalVelocity;
+
     public void ResetView()
     {
         _pitch = 0f;
@@ -38,6 +41,7 @@ public class PlayerLocomotion : MonoBehaviour
     XRInputDevice _leftDevice;
     bool _deviceValid;
     float _pitch;
+    Vector3 _horizontalVelocity;
 
     void Awake()
     {
@@ -74,7 +78,10 @@ public class PlayerLocomotion : MonoBehaviour
     void Update()
     {
         if (ExperimentStartMenu.Instance != null && ExperimentStartMenu.Instance.IsVisible)
+        {
+            _horizontalVelocity = Vector3.zero;
             return;
+        }
         if (!_deviceValid) TryInitDevice();
         BindHead();
 
@@ -82,6 +89,7 @@ public class PlayerLocomotion : MonoBehaviour
             ApplyDesktopLook();
 
         Vector3 horizontal = ReadMoveInput();
+        _horizontalVelocity = horizontal;
         ApplyStickTurn();
         _cc.Move(Vector3.down * 9.8f * Time.deltaTime);
         if (horizontal.sqrMagnitude > 0.0001f)
