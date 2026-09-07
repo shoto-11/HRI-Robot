@@ -68,10 +68,10 @@ def draw_formula_slide_png() -> Path:
     )
     card(
         (40, 268, 940, 500),
-        "② 三要因（PTTC / 経路TTC / 近接）",
+        "② 三要因（PTTC / Crossing TTC・CTTC / 近接）",
         [
             ("eq", "Tp = d / vclose     vclose = max(0, r̂ · v)（近づかない→∞）"),
-            ("eq", "Tc = s / max(v, 0.1)     s: 経路→視線太線までの道のり"),
+            ("eq", "Tc = s / max(v, 0.1)     s: 経路→視線太線までの道のり（CTTC）"),
             ("eq", "Rp,Rc = (1 − T/Tmax)^γ     Rd = (1 − d/Dmax)^γ"),
             ("small", "Tmax = 4.0 s　／　γ = 0.6　／　基準線半幅 w = 0.5 m"),
         ],
@@ -145,7 +145,7 @@ def draw_formula_slide_png() -> Path:
     d.rectangle([0, 1000, W, H], fill=(235, 238, 245))
     d.text(
         (48, 1025),
-        "HRI-Robot  Proposed eHMI  ／  危険度計算の1枚まとめ（PTTC + path TTC + 近接）",
+        "HRI-Robot  Proposed eHMI  ／  危険度計算の1枚まとめ（PTTC + CTTC + 近接）",
         fill=(70, 75, 90),
         font=f_small,
     )

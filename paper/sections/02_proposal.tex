@@ -7,7 +7,7 @@
 
 \begin{enumerate}[leftmargin=2em]
   \item 参加者の視線方向から\textbf{動的基準線}（太線ゾーン）を更新
-  \item 人へのPTTC $T_p$，経路--基準線TTC $T_c$，水平距離 $d$ を算出
+  \item 人へのPTTC $T_p$，Crossing TTC（CTTC）$T_c$，水平距離 $d$ を算出
   \item 重み付き和で危険度スコア $R \in [0,1]$ を計算（表示は $d\le D_\text{max}$ のみ）
   \item $R$ を色相・彩度・明度・不透明度に変換し，経路（または停止線）を描画
 \end{enumerate}
@@ -36,7 +36,7 @@ $T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}=(v_\text{AGV,max}+v_\tex
 
 \paragraph{三要因}
 人へのPTTC $T_p=d/v_\text{close}$（$v_\text{close}=\max(0,\hat{\mathbf{r}}\cdot(\mathbf{v}_\text{AGV}-\mathbf{v}_\text{ped}))$；近づかないとき $\infty$），
-経路--基準線TTC $T_c=s/\max(v,0.1)$，水平距離 $d$．
+Crossing TTC（CTTC）$T_c=s/\max(v,0.1)$，水平距離 $d$．
 
 \paragraph{統合（重み付き和）}
 \begin{align}
@@ -77,7 +77,7 @@ $\gamma=0.6$，$w_p=0.55$，$w_c=0.30$，$w_d=0.15$。PTTC は相対速度 $\mat
     項目 & Baseline & No-AR & Proposed \\
     \midrule
     経路表示 & あり & なし & あり \\
-    危険度計算 & なし（$R=1$固定） & --- & PTTC + 経路TTC + 近接 \\
+    危険度計算 & なし（$R=1$固定） & --- & PTTC + CTTC + 近接 \\
     色 & 固定青 & --- & HSV連動 \\
     不透明度 & 1.0固定 & --- & 連続（$0.35$–$1.0$） \\
     \bottomrule
@@ -87,7 +87,7 @@ $\gamma=0.6$，$w_p=0.55$，$w_c=0.30$，$w_d=0.15$。PTTC は相対速度 $\mat
 \subsection{Proposalとしての妥当性}
 
 \paragraph{再現可能性}
-$R$ は PTTC，経路TTC，距離，速度から\textbf{決定論的}に算出される．
+$R$ は PTTC，Crossing TTC（CTTC），距離，速度から\textbf{決定論的}に算出される．
 被験者や実験者の主観が刺激生成に介入しない．
 
 \paragraph{Baseline / No-AR との分離}

@@ -1,7 +1,8 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
-/// PTTC（相対速度）・path TTC・近接の重み付き和で危険度を算出する。
+/// PTTC（相対速度）・Crossing TTC（CTTC）・近接の重み付き和で危険度を算出する。
 /// 経路表示可否は距離ゲート（d ≤ D_max）のみ。
 /// </summary>
 public class VehicleRiskCalculator : MonoBehaviour
@@ -16,7 +17,8 @@ public class VehicleRiskCalculator : MonoBehaviour
 
     [Header("融合重み（和が 1 を超えたら clamp）")]
     [SerializeField] float weightPttc = 0.55f;
-    [SerializeField] float weightPathTtc = 0.30f;
+    [FormerlySerializedAs("weightPathTtc")]
+    [SerializeField] float weightCttc = 0.30f;
     [SerializeField] float weightProximity = 0.15f;
 
     const float TTC_MAX = FactoryLayout.EhmiTtcMaxSeconds;
@@ -67,7 +69,7 @@ public class VehicleRiskCalculator : MonoBehaviour
             ? 0f
             : Mathf.Pow(Mathf.Clamp01(1f - d / DISPLAY_DISTANCE_MAX), GAMMA);
 
-        float r = weightPttc * rp + weightPathTtc * rc + weightProximity * rd;
+        float r = weightPttc * rp + weightCttc * rc + weightProximity * rd;
         currentScore = Mathf.Clamp01(r);
     }
 

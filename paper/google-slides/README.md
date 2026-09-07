@@ -6,7 +6,7 @@
 |----------|------|
 | **`research_question_slide.pptx`** | **研究課題・仮説・条件（1枚）** |
 | `research_question_slide_16x9.png` | 同上（画像） |
-| **`risk_formula_slide.pptx`** | 危険度 R の計算式（PTTC+pathTTC+近接） |
+| **`risk_formula_slide.pptx`** | 危険度 R の計算式（PTTC+CTTC+近接） |
 | `risk_formula_slide_16x9.png` | 同上（画像） |
 | `risk_appearance.pptx` | 見た目サンプル（全7枚） |
 | `risk_appearance_slide_16x9.png` | 見た目サンプル（1枚画像） |

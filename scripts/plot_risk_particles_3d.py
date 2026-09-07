@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Research-style particle scatter: (x, y, θ) with projections and sliced planes.
-3D graphs use PTTC + lateral-crossing path TTC + proximity.
-Path TTC: s≈|x|/|sinθ|, only if y-axis hit is in front (y_hit>0).
-Front-approach proxy s≈y/|cosθ| is NOT used (Unity still uses full path TTC).
+3D graphs use PTTC + lateral Crossing TTC (CTTC) proxy + proximity.
+CTTC proxy: s≈|x|/|sinθ|, only if y-axis hit is in front (y_hit>0).
+Front-approach proxy s≈y/|cosθ| is NOT used (Unity still uses full Crossing TTC).
 Point color and opacity match RiskToVisualMapper (HSV + α=0.35+0.65R).
 Requires: pip install numpy matplotlib
 """
@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 T_MAX, D_MAX, GAMMA = 4.0, 13.6, 0.6
-W_P, W_C, W_D = 0.55, 0.30, 0.15
+W_P, W_C, W_D = 0.0, 1.0, 0.0
 V_CLOSE_EPS = 0.05
 DEFAULT_SPEED = 2.0
 # Pedestrian walks +Y (gaze forward) in the plot frame unless overridden.
@@ -80,7 +80,7 @@ def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED, ped_speed=DEFAULT_PED_SPEED)
 
 
 def estimate_path_ttc(x, y, theta, speed=DEFAULT_SPEED):
-    """Lateral path-TTC to the y-axis (x=0): s≈|x|/|sinθ|, Tc=s/v.
+    """Lateral Crossing TTC (CTTC) proxy to the y-axis (x=0): s≈|x|/|sinθ|, Tc=s/v.
 
     y enters via the hit ordinate:
         y_hit = y - x · cosθ / sinθ
@@ -225,7 +225,7 @@ def save_theta_slices(x, y, theta, colors, examples):
         ax.set_ylim(-15.5, 15.5)
         ax.set_aspect("equal", adjustable="box")
     fig.suptitle(
-        "Pose space sliced by heading θ — R = PTTC + cross pathTTC (s≈|x|/|sinθ|) + prox",
+        "Pose space sliced by heading θ — R = PTTC + CTTC (s≈|x|/|sinθ|) + prox",
         fontsize=12,
     )
     fig.tight_layout()
@@ -375,7 +375,7 @@ def main():
     ax3d.set_xlabel("x (m)  lateral")
     ax3d.set_ylabel("y (m)  forward")
     ax3d.set_zlabel("θ (deg) heading")
-    ax3d.set_title("3D: PTTC + cross pathTTC (s≈|x|/|sinθ|) + proximity")
+    ax3d.set_title("3D: PTTC + CTTC (s≈|x|/|sinθ|) + proximity")
     ax3d.view_init(elev=22, azim=-58)
     fig3d.tight_layout()
     save_fig(fig3d, "risk_particles_3d")
@@ -416,7 +416,7 @@ def main():
     plot_projection(ax_xz, x, theta, colors, examples, "x", "theta", "x (m)", "θ (°)", "xz")
 
     figp.suptitle(
-        "AGV pose grid by R (PTTC + cross pathTTC s≈|x|/|sinθ| + proximity)",
+        "AGV pose grid by R (PTTC + CTTC s≈|x|/|sinθ| + proximity)",
         fontsize=12,
     )
     figp.tight_layout()
