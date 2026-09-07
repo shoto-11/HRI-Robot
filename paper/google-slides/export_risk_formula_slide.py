@@ -71,7 +71,7 @@ def draw_formula_slide_png() -> Path:
         "② 三要因（PTTC / Crossing TTC・CTTC / 近接）",
         [
             ("eq", "Tp = d / vclose     vclose = max(0, r̂ · v)（近づかない→∞）"),
-            ("eq", "Tc = s / max(v, 0.1)     s: 経路→視線太線までの道のり（CTTC）"),
+            ("eq", "Tc = s / max(vAGV, 0.1)     s: 経路→視線太線までの道のり（CTTC）"),
             ("eq", "Rp,Rc = (1 − T/Tmax)^γ     Rd = (1 − d/Dmax)^γ"),
             ("small", "Tmax = 4.0 s　／　γ = 0.6　／　基準線半幅 w = 0.5 m"),
         ],

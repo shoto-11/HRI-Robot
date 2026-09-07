@@ -56,10 +56,10 @@ AGVと歩行者の相対運動から，現在の閉じ込みが続けば何秒�
 \end{equation}
 
 \subsubsection{$R_c$：Crossing TTC / CTTC（視線帯の横断）}
-AGVの\textbf{計画経路}を現在速度 $v$ で進んだとき，視線の太線ゾーンに最初に達するまでの時間である．
+AGVの\textbf{計画経路}を現在速度 $v_\text{AGV}$ で進んだとき，視線の太線ゾーンに最初に達するまでの時間である．
 経路に沿った道のりを $s$ として
 \begin{equation}
-  T_c=\frac{s}{\max(v,\,0.1)}
+  T_c=\frac{s}{\max(v_\text{AGV},\,0.1)}
   \quad\text{（交差なし，または $T_c>T_\text{max}$ なら $\infty$）}
 \end{equation}
 と定義し，$R_c=f(T_c)$ とする．
