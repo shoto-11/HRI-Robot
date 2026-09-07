@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 T_MAX, D_MAX, GAMMA = 4.0, 13.6, 0.6
-W_P, W_C, W_D = 0.0, 1.0, 0.0
+W_P, W_C, W_D = 1.0, 0.0, 0.0
 V_CLOSE_EPS = 0.05
 DEFAULT_SPEED = 2.0
 # Pedestrian walks +Y (gaze forward) in the plot frame unless overridden.
