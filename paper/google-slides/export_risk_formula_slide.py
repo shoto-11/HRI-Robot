@@ -81,9 +81,9 @@ def draw_formula_slide_png() -> Path:
         (40, 518, 940, 700),
         "③ 統合スコア R（重み付き和）",
         [
-            ("eq", "R = max( Rfloor ,  min(1,  wp·Rp + wc·Rc + wd·Rd) )"),
+            ("eq", "R = min(1,  wp·Rp + wc·Rc + wd·Rd)"),
             ("body", "wp=0.55（迫り）　wc=0.30（視線横断）　wd=0.15（近接は保険）"),
-            ("small", "Rfloor = 0.08　／　max ではなく和 → 複合危険を加算"),
+            ("small", "Rfloor なし　／　max ではなく和 → 複合危険を加算"),
         ],
         (140, 50, 50),
     )
@@ -135,7 +135,7 @@ def draw_formula_slide_png() -> Path:
         "主要パラメータ",
         [
             ("body", "Tmax = 4.0 s（正規化のみ）　Dmax = 13.6 m（表示＋Rd）"),
-            ("body", "γ = 0.6　Rfloor = 0.08　wp/wc/wd = 0.55 / 0.30 / 0.15"),
+            ("body", "γ = 0.6　wp/wc/wd = 0.55 / 0.30 / 0.15（Rfloor なし）"),
             ("body", "vAGV,max = 2.0 m/s　vped = 1.4 m/s　w = 0.5 m"),
             ("small", "表示ゲートは距離のみ　／　スコアは Tp+Tc+d の重み付き和"),
         ],

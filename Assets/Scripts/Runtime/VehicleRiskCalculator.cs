@@ -22,7 +22,6 @@ public class VehicleRiskCalculator : MonoBehaviour
     const float TTC_MAX = FactoryLayout.EhmiTtcMaxSeconds;
     const float DISPLAY_DISTANCE_MAX = FactoryLayout.DisplayDistanceMax;
     const float GAMMA = 0.6f;
-    const float SCORE_FLOOR = 0.08f;
     const float V_CLOSE_EPS = 0.05f;
 
     public bool IsStopped => agv != null && agv.IsStopped;
@@ -67,7 +66,7 @@ public class VehicleRiskCalculator : MonoBehaviour
             : Mathf.Pow(Mathf.Clamp01(1f - d / DISPLAY_DISTANCE_MAX), GAMMA);
 
         float r = weightPttc * rp + weightPathTtc * rc + weightProximity * rd;
-        currentScore = Mathf.Max(SCORE_FLOOR, Mathf.Min(1f, r));
+        currentScore = Mathf.Clamp01(r);
     }
 
     static float HorizontalDistance(Vector3 a, Vector3 b)

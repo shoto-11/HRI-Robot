@@ -43,9 +43,9 @@ $T_\text{max}=\SI{4.0}{s}$，$D_\text{max}=\SI{13.6}{m}=(v_\text{AGV,max}+v_\tex
   R_p &= f(T_p),\quad R_c=f(T_c),\quad
   R_d=(1-d/D_\text{max})^{\gamma}\ \text{（$d\ge D_\text{max}$ なら $0$）} \\[2pt]
   f(T) &= (1-T/T_\text{max})^{\gamma}\ \text{（$T=\infty$ または $T>T_\text{max}$ なら $0$）} \\[2pt]
-  R &= \max\!\bigl(R_\text{floor},\, \min(1,\, w_p R_p + w_c R_c + w_d R_d)\bigr)
+  R &= \min(1,\, w_p R_p + w_c R_c + w_d R_d)
 \end{align}
-$\gamma=0.6$，$R_\text{floor}=0.08$，$w_p=0.55$，$w_c=0.30$，$w_d=0.15$．
+$\gamma=0.6$，$w_p=0.55$，$w_c=0.30$，$w_d=0.15$（$R_\text{floor}$ は用いない）．
 
 \subsection{視覚マッピング（Proposedのみ）}
 

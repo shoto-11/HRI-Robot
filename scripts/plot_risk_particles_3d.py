@@ -13,7 +13,6 @@ import numpy as np
 
 T_MAX, D_MAX, GAMMA = 4.0, 13.6, 0.6
 W_P, W_C, W_D = 0.55, 0.30, 0.15
-SCORE_FLOOR = 0.08
 V_CLOSE_EPS = 0.05
 DEFAULT_SPEED = 2.0
 OUT_DIR = Path(__file__).resolve().parent.parent / "paper" / "google-slides"
@@ -36,14 +35,14 @@ def time_to_score(t: float) -> float:
 
 
 def score_from_times(d: float, tp: float, tc: float) -> float:
-    """Display gate: d ≤ D_max. R = wp·Rp + wc·Rc + wd·Rd."""
+    """Display gate: d ≤ D_max. R = clamp(wp·Rp + wc·Rc + wd·Rd, 0, 1). No R_floor."""
     if d > D_MAX:
         return 0.0
     rp = time_to_score(tp)
     rc = time_to_score(tc)
     rd = 0.0 if d >= D_MAX else max(0.0, 1.0 - d / D_MAX) ** GAMMA
     r = W_P * rp + W_C * rc + W_D * rd
-    return max(SCORE_FLOOR, min(1.0, r))
+    return float(np.clip(r, 0.0, 1.0))
 
 
 def estimate_pttc(x, y, theta, speed=DEFAULT_SPEED):
