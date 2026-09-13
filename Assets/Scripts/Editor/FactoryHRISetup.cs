@@ -1190,10 +1190,13 @@ public static class FactoryHRISetup
         var spawner = systems.AddComponent<AGVSpawner>();
         AssignAgvPrefab(spawner);
         systems.AddComponent<AGVPathVisualizer>();
+        systems.AddComponent<RiskScoringConfig>();
         systems.AddComponent<ExperimentManager>();
         systems.AddComponent<ExperimentStartMenu>();
         systems.AddComponent<MeasurementHub>();
         var tracker = systems.GetComponent<PathDeviationTracker>() ?? systems.AddComponent<PathDeviationTracker>();
+        systems.AddComponent<PathApproachTracker>();
+        systems.AddComponent<HmdRotationTracker>();
         tracker.optimalPathWaypoints = BuildCorridorWaypoints(FactoryLayout.StationA, FactoryLayout.StationB);
     }
 

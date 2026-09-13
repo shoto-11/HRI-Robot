@@ -2,7 +2,8 @@ using UnityEngine;
 using UnityEngine.Serialization;
 
 /// <summary>
-/// PTTC（相対速度）・Crossing TTC（CTTC）・近接の重み付き和で危険度を算出する。
+/// PTTC（相対速度）・Crossing TTC（CTTC）・近接の重み付き和、または距離のみで危険度を算出する。
+/// モードは RiskScoringConfig（Inspector）で切り替え。既定は DistanceOnly。
 /// 経路表示可否は距離ゲート（d ≤ D_max）のみ。
 /// </summary>
 public class VehicleRiskCalculator : MonoBehaviour
@@ -15,7 +16,7 @@ public class VehicleRiskCalculator : MonoBehaviour
 
     public bool SkipScoring;
 
-    [Header("融合重み（和が 1 を超えたら clamp）")]
+    [Header("融合重み（Full モード・和が 1 を超えたら clamp）")]
     [SerializeField] float weightPttc = 0.55f;
     [FormerlySerializedAs("weightPathTtc")]
     [SerializeField] float weightCttc = 0.30f;
@@ -57,6 +58,16 @@ public class VehicleRiskCalculator : MonoBehaviour
             return;
         }
 
+        float rd = d >= DISPLAY_DISTANCE_MAX
+            ? 0f
+            : Mathf.Pow(Mathf.Clamp01(1f - d / DISPLAY_DISTANCE_MAX), GAMMA);
+
+        if (RiskScoringConfig.Current == RiskScoringConfig.Mode.DistanceOnly)
+        {
+            currentScore = Mathf.Clamp01(rd);
+            return;
+        }
+
         float tp = ComputePttc(ped);
         float tc = ComputeTTCAlongPath(
             crossingLine.AxisStart,
@@ -65,9 +76,6 @@ public class VehicleRiskCalculator : MonoBehaviour
 
         float rp = TimeToScore(tp);
         float rc = TimeToScore(tc);
-        float rd = d >= DISPLAY_DISTANCE_MAX
-            ? 0f
-            : Mathf.Pow(Mathf.Clamp01(1f - d / DISPLAY_DISTANCE_MAX), GAMMA);
 
         float r = weightPttc * rp + weightCttc * rc + weightProximity * rd;
         currentScore = Mathf.Clamp01(r);

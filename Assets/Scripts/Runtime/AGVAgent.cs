@@ -16,9 +16,16 @@ public class AGVAgent : MonoBehaviour
     [SerializeField] float turnSpeed = 2.5f;
 
     public AGVPhase currentPhase;
-    public bool IsStopped => currentPhase == AGVPhase.DwellAtPickup || currentPhase == AGVPhase.DwellAtDrop;
+    /// <summary>人との衝突回避のため進路前方で停止中。</summary>
+    public bool IsYielding { get; private set; }
+    public bool IsStopped => IsYielding
+        || currentPhase == AGVPhase.DwellAtPickup
+        || currentPhase == AGVPhase.DwellAtDrop;
     public float currentSpeed;
     public Vector3[] plannedPath;
+
+    /// <summary>本ケースで人が原因の待機に使った秒数（この AGV）。</summary>
+    public float YieldWaitSeconds { get; private set; }
 
     public float MoveSpeed => speed;
     public float TurnSpeed => turnSpeed;
@@ -66,7 +73,15 @@ public class AGVAgent : MonoBehaviour
         speed = moveSpeed;
         _rng = new SysRandom(unchecked(seed * 1000 + index));
         _missionOrdinal = 0;
+        YieldWaitSeconds = 0f;
+        IsYielding = false;
         transform.position = FactoryLayout.Flatten(transform.position);
+    }
+
+    public void ResetYieldWait()
+    {
+        YieldWaitSeconds = 0f;
+        IsYielding = false;
     }
 
     public void SetSpeed(float value) => speed = value;
@@ -143,7 +158,22 @@ public class AGVAgent : MonoBehaviour
 
     public void TickMotion(float dt)
     {
-        if (IsStopped || ActivePlan == null)
+        if (ActivePlan == null)
+        {
+            IsYielding = false;
+            currentSpeed = 0f;
+            _velocity = Vector3.zero;
+            RefreshPlannedPath();
+            return;
+        }
+
+        bool moving = currentPhase == AGVPhase.MovingToPickup || currentPhase == AGVPhase.MovingToDrop;
+        if (moving && TryYieldToPedestrian(dt))
+            return;
+
+        IsYielding = false;
+
+        if (currentPhase == AGVPhase.DwellAtPickup || currentPhase == AGVPhase.DwellAtDrop)
         {
             currentSpeed = 0f;
             _velocity = Vector3.zero;
@@ -164,6 +194,62 @@ public class AGVAgent : MonoBehaviour
             transform.forward = new Vector3(_velocity.x, 0f, _velocity.z).normalized;
         currentSpeed = _velocity.magnitude;
         RefreshPlannedPath();
+    }
+
+    /// <summary>
+    /// 計画経路の前方帯に人がいれば目の前で停止し、待機時間を積算する。
+    /// </summary>
+    bool TryYieldToPedestrian(float dt)
+    {
+        if (!TryGetPedestrianFlat(out Vector3 ped))
+        {
+            IsYielding = false;
+            return false;
+        }
+
+        bool ahead = PathApproachTracker.TryGetPedestrianAheadOnPath(
+            this,
+            ped,
+            FactoryLayout.YieldPathHalfWidthM,
+            FactoryLayout.YieldStopDistanceM,
+            out _,
+            out _);
+
+        if (!ahead)
+        {
+            IsYielding = false;
+            return false;
+        }
+
+        IsYielding = true;
+        currentSpeed = 0f;
+        _velocity = Vector3.zero;
+        if (MeasurementHub.Instance != null
+            && MeasurementHub.Instance.Timer != null
+            && MeasurementHub.Instance.Timer.IsRunning)
+        {
+            YieldWaitSeconds += dt;
+        }
+        RefreshPlannedPath();
+        return true;
+    }
+
+    Transform _pedestrianRoot;
+
+    bool TryGetPedestrianFlat(out Vector3 ped)
+    {
+        ped = Vector3.zero;
+        if (_pedestrianRoot == null)
+        {
+            var xr = GameObject.Find("XR Origin");
+            _pedestrianRoot = xr != null
+                ? xr.transform
+                : Camera.main != null ? Camera.main.transform : null;
+        }
+        if (_pedestrianRoot == null) return false;
+        ped = _pedestrianRoot.position;
+        ped.y = 0f;
+        return true;
     }
 
     public bool HasArrivedCurrentLeg()

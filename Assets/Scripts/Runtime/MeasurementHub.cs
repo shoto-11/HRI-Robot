@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using UnityEngine;
 
@@ -16,6 +17,8 @@ public class MeasurementHub : MonoBehaviour
     public CollisionCounter Collision { get; private set; }
     public TaskTimer Timer { get; private set; }
     public PathDeviationTracker PathTracker { get; private set; }
+    public PathApproachTracker PathApproach { get; private set; }
+    public HmdRotationTracker HmdRotation { get; private set; }
 
     string _sessionId;
     string _xlsxPath;
@@ -25,7 +28,9 @@ public class MeasurementHub : MonoBehaviour
     static readonly string[] CsvHeader =
     {
         "SessionID", "Timestamp", "Condition", "CaseIndex",
-        "CompletionTime_s", "Collisions", "TraveledPath_m", "CollisionEvents"
+        "CompletionTime_s", "Collisions", "TraveledPath_m",
+        "AgvYieldWait_s", "PathMinApproach_m", "HmdYawRotation_deg",
+        "CollisionEvents"
     };
 
     public string LastExportPath => _xlsxPath;
@@ -43,6 +48,10 @@ public class MeasurementHub : MonoBehaviour
         Collision = GetOrAdd<CollisionCounter>();
         Timer = GetOrAdd<TaskTimer>();
         PathTracker = GetOrAdd<PathDeviationTracker>();
+        PathApproach = GetOrAdd<PathApproachTracker>();
+        HmdRotation = GetOrAdd<HmdRotationTracker>();
+        if (GetComponent<RiskScoringConfig>() == null && FindFirstObjectByType<RiskScoringConfig>() == null)
+            gameObject.AddComponent<RiskScoringConfig>();
     }
 
     T GetOrAdd<T>() where T : MonoBehaviour => GetComponent<T>() ?? gameObject.AddComponent<T>();
@@ -53,9 +62,14 @@ public class MeasurementHub : MonoBehaviour
         Collision.ResetCount();
         Timer.ResetTimer();
         PathTracker.ResetTracker();
+        PathApproach.ResetTracker();
+        HmdRotation.ResetTracker();
+        ResetAgvYieldWaits();
         Timer.StartTiming();
         PathTracker.StartTracking();
-        Debug.Log($"[MeasurementHub] 計測開始: {conditionLabel} ケース {caseIndex + 1}");
+        PathApproach.StartTracking();
+        HmdRotation.StartTracking();
+        Debug.Log($"[MeasurementHub] 計測開始: {conditionLabel} ケース {caseIndex + 1} | Risk={RiskScoringConfig.Current}");
     }
 
     public void OnCaseComplete(string conditionLabel, int caseIndex)
@@ -63,15 +77,27 @@ public class MeasurementHub : MonoBehaviour
         if (!evaluationEnabled) return;
         Timer.StopTiming();
         PathTracker.StopTracking();
+        PathApproach.StopTracking();
+        HmdRotation.StopTracking();
+
+        float yieldWait = SumAgvYieldWait();
+        string approach = PathApproach.HadPedestrianOnPath
+            ? PathApproach.MinApproachOnPathM.ToString("F3", CultureInfo.InvariantCulture)
+            : "";
+        string hmdYaw = HmdRotation.CumulativeYawDegrees.ToString("F1", CultureInfo.InvariantCulture);
+
         _rows.Add(new[]
         {
             _sessionId,
             DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
             conditionLabel,
             (caseIndex + 1).ToString(),
-            Timer.ElapsedTime.ToString("F2"),
+            Timer.ElapsedTime.ToString("F2", CultureInfo.InvariantCulture),
             Collision.Count.ToString(),
-            PathTracker.TotalPathLength.ToString("F2"),
+            PathTracker.TotalPathLength.ToString("F2", CultureInfo.InvariantCulture),
+            yieldWait.ToString("F2", CultureInfo.InvariantCulture),
+            approach,
+            hmdYaw,
             Collision.FormatEvents(),
         });
 
@@ -89,8 +115,28 @@ public class MeasurementHub : MonoBehaviour
             Samples = PathTracker.CopySamples(),
         });
 
-        Debug.Log($"[MeasurementHub] 記録: {conditionLabel} ケース{caseIndex + 1} | 時間={Timer.ElapsedTime:F2}s 衝突={Collision.Count} 移動距離={PathTracker.TotalPathLength:F2}m 点={PathTracker.Samples.Count} events={Collision.FormatEvents()}");
+        Debug.Log(
+            $"[MeasurementHub] 記録: {conditionLabel} ケース{caseIndex + 1} | " +
+            $"時間={Timer.ElapsedTime:F2}s 衝突={Collision.Count} 移動={PathTracker.TotalPathLength:F2}m " +
+            $"AGV待機={yieldWait:F2}s 経路上最接近={(PathApproach.HadPedestrianOnPath ? PathApproach.MinApproachOnPathM.ToString("F2") : "NA")}m " +
+            $"HMDヨー={HmdRotation.CumulativeYawDegrees:F1}°");
         ExportWorkbook();
+    }
+
+    static void ResetAgvYieldWaits()
+    {
+        foreach (var agv in FindObjectsByType<AGVAgent>(FindObjectsSortMode.None))
+            agv?.ResetYieldWait();
+    }
+
+    static float SumAgvYieldWait()
+    {
+        float sum = 0f;
+        foreach (var agv in FindObjectsByType<AGVAgent>(FindObjectsSortMode.None))
+        {
+            if (agv != null) sum += agv.YieldWaitSeconds;
+        }
+        return sum;
     }
 
     public void ExportCSV() => ExportWorkbook();
@@ -127,7 +173,12 @@ public class MeasurementHub : MonoBehaviour
     [ContextMenu("Write Dummy Xlsx")]
     void WriteDummyXlsx()
     {
-        _rows.Add(new[] { _sessionId, "dummy", "Baseline", "1", "1.50", "1", "0.12", "((0.50,3,10.000,0.200,22.000))" });
+        _rows.Add(new[]
+        {
+            _sessionId, "dummy", "Baseline", "1", "1.50", "1", "12.00",
+            "0.40", "0.850", "45.0",
+            "((0.50,3,10.000,0.200,22.000))"
+        });
         _sheets.Add(new ExperimentWorkbook.TrajectorySheet
         {
             SheetName = "Baseline_Case01",

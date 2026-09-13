@@ -55,19 +55,25 @@ Meta Quest 3（OpenXR）を用いたVR実験を行う．
   \centering
   \caption{従属変数（仮説 H1--H3 との対応）}
   \label{tab:dv}
-  \begin{tabular}{lllp{4.5cm}}
+  \begin{tabular}{lllp{5.2cm}}
     \toprule
     変数 & 単位 & 検証仮説 & 定義 \\
     \midrule
     完了時間 & s & H2, H3 & A出発からB到達まで \\
     ニアミス & 回 & H1 & 閾値\SI{0.8}{m}以内接近 \\
     移動距離 & m & H2, H3 & 水平軌跡長 \\
+    AGV総待機時間 & s & H1, H2 & 人が進路前方にいることによる AGV 停止時間の合計 \\
+    経路上最接近距離 & m & H1 & 人が AGV 計画経路上にいるときの水平最接近 \\
+    HMDヨー回転量 & ° & H2 & ケース中の絶対ヨー変化の累積 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 ニアミス閾値 \SI{0.8}{m} $=$ AGV半径\SI{0.5}{m} $+$ 被験者半径\SI{0.3}{m}．
 AGVごとにクールダウン \SI{1.5}{s} を設け，同一接近の重複カウントを防ぐ．
+AGVは計画経路前方\SI{1.5}{m}以内・帯半幅\SI{0.8}{m}に人がいれば目の前で停止する．
+Proposed の危険度は当面 \textbf{距離のみ}（$R=R_d$）で運用し，
+Inspector の \texttt{RiskScoringConfig} で Full（PTTC+CTTC+近接）へ切り替え可能とする．
 
 \subsection{データ記録}
 
@@ -89,10 +95,11 @@ Summary に条件・ケース・従属変数，ケース別シートに \SI{0.5}
     \toprule
     測りたいこと & どう測るか \\
     \midrule
-    移動効率 & 完了時間，移動距離 \\
-    安全性 & ニアミス回数（\SI{0.8}{m}） \\
+    移動効率 & 完了時間，移動距離，HMDヨー回転量 \\
+    安全性 & ニアミス回数（\SI{0.8}{m}），経路上最接近距離 \\
+    AGV側コスト & 人が原因の総待機時間 \\
     経路情報の有無 & Baseline / No-AR / Proposed \\
-    危険度連動の有無 & Proposed のみ $R$ 連動 \\
+    危険度連動の有無 & Proposed のみ $R$ 連動（当面は距離のみ） \\
     \bottomrule
   \end{tabular}
 \end{table}

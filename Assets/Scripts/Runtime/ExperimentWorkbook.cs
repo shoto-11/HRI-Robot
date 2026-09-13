@@ -25,7 +25,9 @@ public static class ExperimentWorkbook
         parts.Add(("Summary", SheetXml(new[]
         {
             "SessionID", "Timestamp", "Condition", "CaseIndex",
-            "CompletionTime_s", "Collisions", "TraveledPath_m", "CollisionEvents"
+            "CompletionTime_s", "Collisions", "TraveledPath_m",
+            "AgvYieldWait_s", "PathMinApproach_m", "HmdYawRotation_deg",
+            "CollisionEvents"
         }, summaryRows)));
 
         if (sheets != null)

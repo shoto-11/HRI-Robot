@@ -17,6 +17,8 @@ public static class FactoryLayout
     public const float NavSampleY = 0.2f;
     /// <summary>AGV 床面投影の一辺（m）。ニアミス判定の AGV 半径 = この値の半分。</summary>
     public const float AgvFootprintM = 1.0f;
+    /// <summary>歩行者水平半径（CharacterController 既定と一致）。</summary>
+    public const float PedestrianBodyRadiusM = 0.3f;
 
     /// <summary>eHMI 危険度計算用パラメータ。</summary>
     public const float AgvMaxSpeedMps = 2.0f;
@@ -24,6 +26,11 @@ public static class FactoryLayout
     public const float EhmiTtcMaxSeconds = 4.0f;
     /// <summary>近接表示上限 (m): (AGV 最大速度 + 歩行速度) × TTC 上限。表示ゲートと Rd 正規化に使用。</summary>
     public const float DisplayDistanceMax = (AgvMaxSpeedMps + PedestrianSpeedMps) * EhmiTtcMaxSeconds;
+
+    /// <summary>経路上に人がいるとみなす横方向半幅（m）= AGV半径 + 人半径。</summary>
+    public const float YieldPathHalfWidthM = AgvFootprintM * 0.5f + PedestrianBodyRadiusM;
+    /// <summary>進路前方この距離以内に人がいれば目の前で停止（m）。</summary>
+    public const float YieldStopDistanceM = 1.5f;
 
     public static readonly Vector3 StationA = new Vector3(22f, 0.2f, 9f);
     public static readonly Vector3 StationB = new Vector3(9f, 0.2f, 58f);
