@@ -237,8 +237,15 @@ public class AGVSpawner : MonoBehaviour
         {
             pathGo = new GameObject("PathLine").transform;
             pathGo.SetParent(root.transform, false);
-            pathGo.gameObject.AddComponent<LineRenderer>();
         }
+        if (pathGo.GetComponent<MeshFilter>() == null)
+            pathGo.gameObject.AddComponent<MeshFilter>();
+        if (pathGo.GetComponent<MeshRenderer>() == null)
+            pathGo.gameObject.AddComponent<MeshRenderer>();
+        // 旧テーパー LineRenderer は残っていても PathRenderer が無効化する
+        if (pathGo.GetComponent<LineRenderer>() == null)
+            pathGo.gameObject.AddComponent<LineRenderer>();
+
         var pr = pathGo.GetComponent<PathRenderer>() ?? pathGo.gameObject.AddComponent<PathRenderer>();
         pr.risk = risk;
         pr.agv = agent;
@@ -251,8 +258,13 @@ public class AGVSpawner : MonoBehaviour
             stopGo.gameObject.AddComponent<LineRenderer>();
         }
         pr.stopLineRenderer = stopGo.GetComponent<LineRenderer>();
-        ConfigureLine(pathGo.GetComponent<LineRenderer>());
         ConfigureLine(pr.stopLineRenderer);
+        var legacyPathLr = pathGo.GetComponent<LineRenderer>();
+        if (legacyPathLr != null)
+        {
+            ConfigureLine(legacyPathLr);
+            legacyPathLr.enabled = false;
+        }
     }
 
     static void ConfigureLine(LineRenderer lr)

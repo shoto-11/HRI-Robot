@@ -1,32 +1,59 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 危険度に応じて経路（走行中は三角先端）または停止線を描画する。
+/// 危険度に応じて経路（走行中は AGV 幅の長方形リボン）または停止線を描画する。
 /// 表示制限は水平距離 d ≤ D_max（FactoryLayout.DisplayDistanceMax）のみ。
+/// 曲がり角は単一メッシュのマイター接合で描くため、半透明の二重描画で濃くならない。
 /// </summary>
-[RequireComponent(typeof(LineRenderer))]
+[RequireComponent(typeof(MeshFilter))]
+[RequireComponent(typeof(MeshRenderer))]
 public class PathRenderer : MonoBehaviour
 {
     public VehicleRiskCalculator risk;
     public AGVAgent agv;
     public LineRenderer stopLineRenderer;
 
-    const float TAPER_WIDTH = 0.65f;
-    const float TIP_WIDTH = 0.12f;
-    /// <summary>床面からの経路表示クリアランス。ロボット本体より低く、床付近に描画する。</summary>
+    /// <summary>経路表示幅 = AGV 床面一辺（長方形・テーパーなし）。</summary>
+    const float PathWidth = FactoryLayout.AgvFootprintM;
     const float PATH_GROUND_CLEARANCE = 0.05f;
     const float ROBOT_HALF_LENGTH = FactoryLayout.AgvFootprintM * 0.5f;
-    const float STOP_LINE_HALF_WIDTH = 0.5f; // 全幅 1.0 m
+    const float STOP_LINE_HALF_WIDTH = 0.5f;
     const float DISPLAY_PLAYER_DISTANCE = FactoryLayout.DisplayDistanceMax;
+    const float MinPointSpacing = 0.05f;
+    const float MiterLimit = 2.5f;
     static readonly Color BaselineColor = new Color(0.25f, 0.55f, 1f);
+    static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    static readonly int ColorId = Shader.PropertyToID("_Color");
 
-    LineRenderer lr;
-    Gradient gradient;
+    MeshFilter _meshFilter;
+    MeshRenderer _meshRenderer;
+    Mesh _mesh;
+    Material _runtimeMat;
+    MaterialPropertyBlock _mpb;
+    static readonly List<Vector3> _centers = new(64);
+    static readonly List<Vector3> _verts = new(128);
+    static readonly List<int> _tris = new(256);
 
     void Awake()
     {
-        lr = GetComponent<LineRenderer>();
-        gradient = new Gradient();
+        _meshFilter = GetComponent<MeshFilter>();
+        _meshRenderer = GetComponent<MeshRenderer>();
+        _mesh = new Mesh { name = "AGV_PathRibbon" };
+        _mesh.MarkDynamic();
+        _meshFilter.sharedMesh = _mesh;
+        _mpb = new MaterialPropertyBlock();
+
+        var legacy = GetComponent<LineRenderer>();
+        if (legacy != null) legacy.enabled = false;
+
+        EnsureMaterial();
+    }
+
+    void OnDestroy()
+    {
+        if (_mesh != null) Destroy(_mesh);
+        if (_runtimeMat != null) Destroy(_runtimeMat);
     }
 
     void Update()
@@ -65,36 +92,31 @@ public class PathRenderer : MonoBehaviour
         }
 
         int sortingOrder = Mathf.RoundToInt(risk.currentScore * 100);
+        _meshRenderer.sortingOrder = sortingOrder;
 
         if (risk.IsStopped)
         {
-            lr.enabled = false;
+            ClearRibbon();
             DrawStopLine(new Color(color.r, color.g, color.b, alpha), path, sortingOrder);
         }
         else
         {
             if (stopLineRenderer != null) stopLineRenderer.enabled = false;
-            lr.enabled = true;
-            Vector3[] display = BuildDisplayPath(path);
-            lr.positionCount = display.Length;
-            lr.SetPositions(display);
-            lr.startWidth = TAPER_WIDTH;
-            lr.endWidth = TIP_WIDTH;
-            lr.sortingOrder = sortingOrder;
-            Color c0 = new Color(color.r, color.g, color.b, alpha);
-            lr.startColor = c0;
-            lr.endColor = c0;
-            gradient.SetKeys(
-                new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
-                new[] { new GradientAlphaKey(alpha, 0f), new GradientAlphaKey(alpha, 1f) });
-            lr.colorGradient = gradient;
+            BuildRibbon(path, new Color(color.r, color.g, color.b, alpha));
         }
     }
 
     void Hide()
     {
-        lr.enabled = false;
+        ClearRibbon();
         if (stopLineRenderer != null) stopLineRenderer.enabled = false;
+    }
+
+    void ClearRibbon()
+    {
+        if (_mesh == null) return;
+        _mesh.Clear();
+        if (_meshRenderer != null) _meshRenderer.enabled = false;
     }
 
     bool IsWithinPlayerRange()
@@ -112,9 +134,12 @@ public class PathRenderer : MonoBehaviour
     {
         if (stopLineRenderer == null) return;
         stopLineRenderer.enabled = true;
-        Vector3[] display = BuildDisplayPath(path);
+        Vector3[] display = BuildCenterline(path);
+        if (display.Length < 1) return;
         Vector3 frontPos = display[0];
-        Vector3 forwardDir = display.Length > 1 ? (display[1] - display[0]).normalized : GetPathForward(display);
+        Vector3 forwardDir = display.Length > 1
+            ? FlatDir(display[1] - display[0])
+            : GetFallbackForward();
         Vector3 perpendicular = Vector3.Cross(Vector3.up, forwardDir).normalized;
         stopLineRenderer.positionCount = 2;
         stopLineRenderer.SetPosition(0, frontPos + perpendicular * STOP_LINE_HALF_WIDTH);
@@ -124,45 +149,128 @@ public class PathRenderer : MonoBehaviour
         stopLineRenderer.sortingOrder = sortingOrder;
     }
 
-    Vector3[] BuildDisplayPath(Vector3[] path)
+    void BuildRibbon(Vector3[] path, Color color)
     {
-        if (path == null || path.Length == 0)
-            return path;
-
-        float y = FactoryLayout.FloorY + PATH_GROUND_CLEARANCE;
-        var display = new Vector3[path.Length];
-        for (int i = 0; i < path.Length; i++)
-            display[i] = new Vector3(path[i].x, y, path[i].z);
-
-        Vector3 forward = GetPathForward(display);
-        display[0] += forward * ROBOT_HALF_LENGTH;
-
-        if (display.Length >= 2 && (display[1] - display[0]).sqrMagnitude < 0.04f)
+        EnsureMaterial();
+        Vector3[] centers = BuildCenterline(path);
+        if (centers.Length < 2)
         {
-            var trimmed = new System.Collections.Generic.List<Vector3> { display[0] };
-            for (int i = 1; i < display.Length; i++)
-            {
-                if ((trimmed[trimmed.Count - 1] - display[i]).sqrMagnitude > 0.04f)
-                    trimmed.Add(display[i]);
-            }
-            if (trimmed.Count == 1 && path.Length > 0)
-                trimmed.Add(new Vector3(path[path.Length - 1].x, y, path[path.Length - 1].z));
-            return trimmed.ToArray();
+            ClearRibbon();
+            return;
         }
 
-        return display;
+        float half = PathWidth * 0.5f;
+        _verts.Clear();
+        _tris.Clear();
+
+        for (int i = 0; i < centers.Length; i++)
+        {
+            Vector3 tan;
+            if (i == 0)
+                tan = FlatDir(centers[1] - centers[0]);
+            else if (i == centers.Length - 1)
+                tan = FlatDir(centers[i] - centers[i - 1]);
+            else
+            {
+                Vector3 inT = FlatDir(centers[i] - centers[i - 1]);
+                Vector3 outT = FlatDir(centers[i + 1] - centers[i]);
+                tan = FlatDir(inT + outT);
+                if (tan.sqrMagnitude < 1e-6f)
+                    tan = outT;
+            }
+
+            Vector3 perp = Vector3.Cross(Vector3.up, tan).normalized;
+            float miter = half;
+            if (i > 0 && i < centers.Length - 1)
+            {
+                Vector3 inT = FlatDir(centers[i] - centers[i - 1]);
+                Vector3 inPerp = Vector3.Cross(Vector3.up, inT).normalized;
+                float cosHalf = Mathf.Clamp(Vector3.Dot(inPerp, perp), 0.25f, 1f);
+                float scale = 1f / cosHalf;
+                if (scale > MiterLimit) scale = MiterLimit;
+                miter = half * scale;
+            }
+
+            _verts.Add(centers[i] - perp * miter);
+            _verts.Add(centers[i] + perp * miter);
+
+            if (i < centers.Length - 1)
+            {
+                int b = i * 2;
+                _tris.Add(b);
+                _tris.Add(b + 1);
+                _tris.Add(b + 2);
+                _tris.Add(b + 1);
+                _tris.Add(b + 3);
+                _tris.Add(b + 2);
+            }
+        }
+
+        _mesh.Clear();
+        _mesh.SetVertices(_verts);
+        _mesh.SetTriangles(_tris, 0);
+        _mesh.RecalculateBounds();
+
+        _mpb.Clear();
+        if (_runtimeMat.HasProperty(BaseColorId))
+            _mpb.SetColor(BaseColorId, color);
+        if (_runtimeMat.HasProperty(ColorId))
+            _mpb.SetColor(ColorId, color);
+        _meshRenderer.SetPropertyBlock(_mpb);
+        _meshRenderer.enabled = true;
     }
 
-    Vector3 GetPathForward(Vector3[] display)
+    Vector3[] BuildCenterline(Vector3[] path)
     {
-        if (display.Length >= 2)
+        _centers.Clear();
+        if (path == null || path.Length == 0)
+            return System.Array.Empty<Vector3>();
+
+        float y = FactoryLayout.FloorY + PATH_GROUND_CLEARANCE;
+        for (int i = 0; i < path.Length; i++)
         {
-            Vector3 dir = display[1] - display[0];
-            dir.y = 0f;
-            if (dir.sqrMagnitude > 1e-4f)
-                return dir.normalized;
+            var p = new Vector3(path[i].x, y, path[i].z);
+            if (_centers.Count == 0
+                || (p - _centers[_centers.Count - 1]).sqrMagnitude > MinPointSpacing * MinPointSpacing)
+                _centers.Add(p);
         }
 
+        if (_centers.Count == 0)
+            return System.Array.Empty<Vector3>();
+
+        Vector3 forward = _centers.Count >= 2
+            ? FlatDir(_centers[1] - _centers[0])
+            : GetFallbackForward();
+        _centers[0] += forward * ROBOT_HALF_LENGTH;
+
+        for (int i = 1; i < _centers.Count;)
+        {
+            if ((_centers[i] - _centers[i - 1]).sqrMagnitude < MinPointSpacing * MinPointSpacing)
+                _centers.RemoveAt(i);
+            else
+                i++;
+        }
+
+        if (_centers.Count == 1)
+        {
+            Vector3 tip = new Vector3(path[path.Length - 1].x, y, path[path.Length - 1].z);
+            if ((tip - _centers[0]).sqrMagnitude > MinPointSpacing * MinPointSpacing)
+                _centers.Add(tip);
+            else
+                _centers.Add(_centers[0] + forward * 0.5f);
+        }
+
+        return _centers.ToArray();
+    }
+
+    static Vector3 FlatDir(Vector3 v)
+    {
+        v.y = 0f;
+        return v.sqrMagnitude > 1e-8f ? v.normalized : Vector3.forward;
+    }
+
+    Vector3 GetFallbackForward()
+    {
         if (agv != null)
         {
             Vector3 fwd = agv.transform.forward;
@@ -170,9 +278,42 @@ public class PathRenderer : MonoBehaviour
             if (fwd.sqrMagnitude > 1e-4f)
                 return fwd.normalized;
         }
-
         Vector3 tfwd = transform.forward;
         tfwd.y = 0f;
         return tfwd.sqrMagnitude > 1e-4f ? tfwd.normalized : Vector3.forward;
+    }
+
+    void EnsureMaterial()
+    {
+        if (_runtimeMat != null)
+        {
+            if (_meshRenderer.sharedMaterial != _runtimeMat)
+                _meshRenderer.sharedMaterial = _runtimeMat;
+            return;
+        }
+
+        var shader = Shader.Find("Universal Render Pipeline/Unlit")
+                     ?? Shader.Find("Unlit/Color")
+                     ?? Shader.Find("Sprites/Default");
+        _runtimeMat = new Material(shader) { name = "AGV_PathRibbonMat" };
+        if (_runtimeMat.HasProperty("_Surface"))
+        {
+            _runtimeMat.SetFloat("_Surface", 1f);
+            _runtimeMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        }
+        if (_runtimeMat.HasProperty("_SrcBlend"))
+            _runtimeMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        if (_runtimeMat.HasProperty("_DstBlend"))
+            _runtimeMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        if (_runtimeMat.HasProperty("_ZWrite"))
+            _runtimeMat.SetInt("_ZWrite", 0);
+        _runtimeMat.renderQueue = 3000;
+        if (_runtimeMat.HasProperty(BaseColorId))
+            _runtimeMat.SetColor(BaseColorId, Color.white);
+        if (_runtimeMat.HasProperty(ColorId))
+            _runtimeMat.SetColor(ColorId, Color.white);
+        _meshRenderer.sharedMaterial = _runtimeMat;
+        _meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        _meshRenderer.receiveShadows = false;
     }
 }
