@@ -26,7 +26,7 @@ public static class ExperimentWorkbook
         {
             "SessionID", "Timestamp", "Condition", "CaseIndex",
             "CompletionTime_s", "Collisions", "TraveledPath_m",
-            "AgvYieldWait_s", "PathMinApproach_m", "HmdYawRotation_deg",
+            "AgvYieldWait_s", "PathMinApproach_m", "HmdYawRotation_deg", "HmdPitchRotation_deg",
             "CollisionEvents"
         }, summaryRows)));
 

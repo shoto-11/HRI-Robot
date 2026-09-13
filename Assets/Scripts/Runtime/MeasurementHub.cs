@@ -29,7 +29,7 @@ public class MeasurementHub : MonoBehaviour
     {
         "SessionID", "Timestamp", "Condition", "CaseIndex",
         "CompletionTime_s", "Collisions", "TraveledPath_m",
-        "AgvYieldWait_s", "PathMinApproach_m", "HmdYawRotation_deg",
+        "AgvYieldWait_s", "PathMinApproach_m", "HmdYawRotation_deg", "HmdPitchRotation_deg",
         "CollisionEvents"
     };
 
@@ -85,6 +85,7 @@ public class MeasurementHub : MonoBehaviour
             ? PathApproach.MinApproachOnPathM.ToString("F3", CultureInfo.InvariantCulture)
             : "";
         string hmdYaw = HmdRotation.CumulativeYawDegrees.ToString("F1", CultureInfo.InvariantCulture);
+        string hmdPitch = HmdRotation.CumulativePitchDegrees.ToString("F1", CultureInfo.InvariantCulture);
 
         _rows.Add(new[]
         {
@@ -98,6 +99,7 @@ public class MeasurementHub : MonoBehaviour
             yieldWait.ToString("F2", CultureInfo.InvariantCulture),
             approach,
             hmdYaw,
+            hmdPitch,
             Collision.FormatEvents(),
         });
 
@@ -119,7 +121,7 @@ public class MeasurementHub : MonoBehaviour
             $"[MeasurementHub] 記録: {conditionLabel} ケース{caseIndex + 1} | " +
             $"時間={Timer.ElapsedTime:F2}s 衝突={Collision.Count} 移動={PathTracker.TotalPathLength:F2}m " +
             $"AGV待機={yieldWait:F2}s 経路上最接近={(PathApproach.HadPedestrianOnPath ? PathApproach.MinApproachOnPathM.ToString("F2") : "NA")}m " +
-            $"HMDヨー={HmdRotation.CumulativeYawDegrees:F1}°");
+            $"HMDヨー={HmdRotation.CumulativeYawDegrees:F1}° ピッチ={HmdRotation.CumulativePitchDegrees:F1}°");
         ExportWorkbook();
     }
 
@@ -176,7 +178,7 @@ public class MeasurementHub : MonoBehaviour
         _rows.Add(new[]
         {
             _sessionId, "dummy", "Baseline", "1", "1.50", "1", "12.00",
-            "0.40", "0.850", "45.0",
+            "0.40", "0.850", "45.0", "12.0",
             "((0.50,3,10.000,0.200,22.000))"
         });
         _sheets.Add(new ExperimentWorkbook.TrajectorySheet
