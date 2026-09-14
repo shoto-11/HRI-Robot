@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 危険度に応じて経路（走行中は AGV 幅の長方形リボン）または停止線を描画する。
+/// 危険度に応じて経路（走行中は AGV 本体と同幅の長方形リボン）または停止線を描画する。
 /// 表示制限は水平距離 d ≤ D_max（FactoryLayout.DisplayDistanceMax）のみ。
 /// 曲がり角は単一メッシュのマイター接合で描くため、半透明の二重描画で濃くならない。
 /// </summary>
@@ -14,13 +14,10 @@ public class PathRenderer : MonoBehaviour
     public AGVAgent agv;
     public LineRenderer stopLineRenderer;
 
-    /// <summary>経路表示幅 = AGV 床面一辺（長方形・テーパーなし）。</summary>
-    const float PathWidth = FactoryLayout.AgvFootprintM;
     const float PATH_GROUND_CLEARANCE = 0.05f;
-    const float ROBOT_HALF_LENGTH = FactoryLayout.AgvFootprintM * 0.5f;
-    const float STOP_LINE_HALF_WIDTH = 0.5f;
     const float DISPLAY_PLAYER_DISTANCE = FactoryLayout.DisplayDistanceMax;
     const float MinPointSpacing = 0.05f;
+    /// <summary>マイター拡大上限。幅そのものは AGV 実寸に固定し、角の継ぎだけ伸ばす。</summary>
     const float MiterLimit = 2.5f;
     static readonly Color BaselineColor = new Color(0.25f, 0.55f, 1f);
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -31,9 +28,12 @@ public class PathRenderer : MonoBehaviour
     Mesh _mesh;
     Material _runtimeMat;
     MaterialPropertyBlock _mpb;
+    float _cachedWidth = -1f;
+    float _cachedHalfLength = -1f;
     static readonly List<Vector3> _centers = new(64);
     static readonly List<Vector3> _verts = new(128);
     static readonly List<int> _tris = new(256);
+    static readonly Vector3[] _boundCorners = new Vector3[8];
 
     void Awake()
     {
@@ -142,8 +142,9 @@ public class PathRenderer : MonoBehaviour
             : GetFallbackForward();
         Vector3 perpendicular = Vector3.Cross(Vector3.up, forwardDir).normalized;
         stopLineRenderer.positionCount = 2;
-        stopLineRenderer.SetPosition(0, frontPos + perpendicular * STOP_LINE_HALF_WIDTH);
-        stopLineRenderer.SetPosition(1, frontPos - perpendicular * STOP_LINE_HALF_WIDTH);
+        float halfW = ResolveFootprint().halfWidth;
+        stopLineRenderer.SetPosition(0, frontPos + perpendicular * halfW);
+        stopLineRenderer.SetPosition(1, frontPos - perpendicular * halfW);
         stopLineRenderer.startColor = stopLineRenderer.endColor = color;
         stopLineRenderer.startWidth = stopLineRenderer.endWidth = 0.18f;
         stopLineRenderer.sortingOrder = sortingOrder;
@@ -159,12 +160,13 @@ public class PathRenderer : MonoBehaviour
             return;
         }
 
-        float half = PathWidth * 0.5f;
+        float half = ResolveFootprint().halfWidth;
         _verts.Clear();
         _tris.Clear();
 
         // centers はワールド座標。MeshFilter はローカル頂点なので InverseTransform する。
         // 三角の巻き順は上向き法線（+Y）になるよう CCW（上から見て）にする。
+        // 半幅は AGV 実寸固定。マイターは角の継ぎ目用で、線分垂直方向の幅は half のまま。
         for (int i = 0; i < centers.Length; i++)
         {
             Vector3 tan;
@@ -247,7 +249,7 @@ public class PathRenderer : MonoBehaviour
         Vector3 forward = _centers.Count >= 2
             ? FlatDir(_centers[1] - _centers[0])
             : GetFallbackForward();
-        _centers[0] += forward * ROBOT_HALF_LENGTH;
+        _centers[0] += forward * ResolveFootprint().halfLength;
 
         for (int i = 1; i < _centers.Count;)
         {
@@ -288,6 +290,92 @@ public class PathRenderer : MonoBehaviour
         tfwd.y = 0f;
         return tfwd.sqrMagnitude > 1e-4f ? tfwd.normalized : Vector3.forward;
     }
+
+    (float halfWidth, float halfLength) ResolveFootprint()
+    {
+        if (_cachedWidth > 0f && _cachedHalfLength > 0f)
+            return (_cachedWidth * 0.5f, _cachedHalfLength);
+
+        float width = FactoryLayout.AgvFootprintM;
+        float length = FactoryLayout.AgvFootprintM;
+        Transform root = agv != null ? agv.transform : transform.parent;
+        if (root != null && TryMeasureFootprint(root, out float w, out float len))
+        {
+            width = w;
+            length = len;
+        }
+
+        _cachedWidth = Mathf.Max(0.05f, width);
+        _cachedHalfLength = Mathf.Max(0.025f, length * 0.5f);
+        return (_cachedWidth * 0.5f, _cachedHalfLength);
+    }
+
+    static bool TryMeasureFootprint(Transform root, out float width, out float length)
+    {
+        width = 0f;
+        length = 0f;
+        var body = root.Find("Body");
+        if (body != null)
+        {
+            // 手続き生成 AGV: Body の lossyScale がワールド寸法
+            width = Mathf.Abs(body.lossyScale.x);
+            length = Mathf.Abs(body.lossyScale.z);
+            return width > 0.05f && length > 0.05f;
+        }
+
+        bool any = false;
+        float minRight = float.MaxValue, maxRight = float.MinValue;
+        float minFwd = float.MaxValue, maxFwd = float.MinValue;
+        Vector3 origin = root.position;
+        Vector3 right = FlatDir(root.right);
+        Vector3 fwd = FlatDir(root.forward);
+
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+            if (r is LineRenderer) continue;
+            string n = r.gameObject.name;
+            if (ContainsIgnoreCase(n, "Path") || ContainsIgnoreCase(n, "Stop")
+                || ContainsIgnoreCase(n, "shadow") || ContainsIgnoreCase(n, "Cargo"))
+                continue;
+
+            Bounds b = r.bounds;
+            FillBoundCorners(b);
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 d = _boundCorners[i] - origin;
+                float alongRight = Vector3.Dot(d, right);
+                float alongFwd = Vector3.Dot(d, fwd);
+                if (alongRight < minRight) minRight = alongRight;
+                if (alongRight > maxRight) maxRight = alongRight;
+                if (alongFwd < minFwd) minFwd = alongFwd;
+                if (alongFwd > maxFwd) maxFwd = alongFwd;
+            }
+            any = true;
+        }
+
+        if (!any) return false;
+        width = maxRight - minRight;
+        length = maxFwd - minFwd;
+        return width > 0.05f && length > 0.05f;
+    }
+
+    static void FillBoundCorners(Bounds b)
+    {
+        Vector3 c = b.center;
+        Vector3 e = b.extents;
+        _boundCorners[0] = c + new Vector3(-e.x, -e.y, -e.z);
+        _boundCorners[1] = c + new Vector3(-e.x, -e.y, e.z);
+        _boundCorners[2] = c + new Vector3(-e.x, e.y, -e.z);
+        _boundCorners[3] = c + new Vector3(-e.x, e.y, e.z);
+        _boundCorners[4] = c + new Vector3(e.x, -e.y, -e.z);
+        _boundCorners[5] = c + new Vector3(e.x, -e.y, e.z);
+        _boundCorners[6] = c + new Vector3(e.x, e.y, -e.z);
+        _boundCorners[7] = c + new Vector3(e.x, e.y, e.z);
+    }
+
+    static bool ContainsIgnoreCase(string s, string token) =>
+        s.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0;
 
     void EnsureMaterial()
     {
