@@ -163,6 +163,8 @@ public class PathRenderer : MonoBehaviour
         _verts.Clear();
         _tris.Clear();
 
+        // centers はワールド座標。MeshFilter はローカル頂点なので InverseTransform する。
+        // 三角の巻き順は上向き法線（+Y）になるよう CCW（上から見て）にする。
         for (int i = 0; i < centers.Length; i++)
         {
             Vector3 tan;
@@ -191,18 +193,21 @@ public class PathRenderer : MonoBehaviour
                 miter = half * scale;
             }
 
-            _verts.Add(centers[i] - perp * miter);
-            _verts.Add(centers[i] + perp * miter);
+            Vector3 leftWorld = centers[i] - perp * miter;
+            Vector3 rightWorld = centers[i] + perp * miter;
+            _verts.Add(transform.InverseTransformPoint(leftWorld));
+            _verts.Add(transform.InverseTransformPoint(rightWorld));
 
             if (i < centers.Length - 1)
             {
                 int b = i * 2;
+                // left0, left1, right0 / right0, left1, right1 → 法線 +Y
                 _tris.Add(b);
-                _tris.Add(b + 1);
                 _tris.Add(b + 2);
                 _tris.Add(b + 1);
+                _tris.Add(b + 1);
+                _tris.Add(b + 2);
                 _tris.Add(b + 3);
-                _tris.Add(b + 2);
             }
         }
 
@@ -210,6 +215,7 @@ public class PathRenderer : MonoBehaviour
         _mesh.SetVertices(_verts);
         _mesh.SetTriangles(_tris, 0);
         _mesh.RecalculateBounds();
+        _mesh.RecalculateNormals();
 
         _mpb.Clear();
         if (_runtimeMat.HasProperty(BaseColorId))
@@ -307,6 +313,10 @@ public class PathRenderer : MonoBehaviour
             _runtimeMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
         if (_runtimeMat.HasProperty("_ZWrite"))
             _runtimeMat.SetInt("_ZWrite", 0);
+        // 床面デカールは両面表示（巻き順ミスや斜め視でも欠けない）
+        if (_runtimeMat.HasProperty("_Cull"))
+            _runtimeMat.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Off);
+        _runtimeMat.doubleSidedGI = true;
         _runtimeMat.renderQueue = 3000;
         if (_runtimeMat.HasProperty(BaseColorId))
             _runtimeMat.SetColor(BaseColorId, Color.white);
