@@ -19,6 +19,10 @@ public static class FactoryLayout
     public const float AgvFootprintM = 1.0f;
     /// <summary>歩行者水平半径（CharacterController 既定と一致）。</summary>
     public const float PedestrianBodyRadiusM = 0.3f;
+    /// <summary>身長約 170 cm の目線高さ（床面から、m）。</summary>
+    public const float EyeHeightM = 1.60f;
+    /// <summary>身長約 170 cm の体幹カプセル高さ（m）。</summary>
+    public const float StandingHeightM = 1.70f;
 
     /// <summary>eHMI 危険度計算用パラメータ。</summary>
     public const float AgvMaxSpeedMps = 2.0f;

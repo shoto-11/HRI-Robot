@@ -15,6 +15,7 @@ public class PlayerLocomotion : MonoBehaviour
     [SerializeField] float maxPitch = 50f;
     [SerializeField] Transform hmdTransform;
     [SerializeField] Transform pitchPivot;
+    [SerializeField] float stickDeadzone = 0.15f;
 
     public float MoveSpeed => moveSpeed;
 
@@ -38,8 +39,8 @@ public class PlayerLocomotion : MonoBehaviour
 
     CharacterController _cc;
     PlayerXrRig _rig;
-    XRInputDevice _leftDevice;
-    bool _deviceValid;
+    InputAction _moveAction;
+    InputAction _turnAction;
     float _pitch;
     Vector3 _horizontalVelocity;
 
@@ -47,19 +48,64 @@ public class PlayerLocomotion : MonoBehaviour
     {
         if (GetComponent<PlayerXrRig>() == null)
             gameObject.AddComponent<PlayerXrRig>();
+        EnsureStickActions();
+    }
+
+    void OnEnable()
+    {
+        EnsureStickActions();
+        _moveAction?.Enable();
+        _turnAction?.Enable();
+    }
+
+    void OnDisable()
+    {
+        _moveAction?.Disable();
+        _turnAction?.Disable();
+    }
+
+    void OnDestroy()
+    {
+        _moveAction?.Dispose();
+        _turnAction?.Dispose();
+        _moveAction = null;
+        _turnAction = null;
     }
 
     void Start()
     {
         _cc = GetComponent<CharacterController>();
-        _cc.height = 1.8f;
-        _cc.center = new Vector3(0f, 0.9f, 0f);
-        _cc.radius = 0.3f;
+        float h = FactoryLayout.StandingHeightM;
+        _cc.height = h;
+        _cc.center = new Vector3(0f, h * 0.5f, 0f);
+        _cc.radius = FactoryLayout.PedestrianBodyRadiusM;
+        _cc.skinWidth = 0.08f;
+        _cc.minMoveDistance = 0f;
         _rig = GetComponent<PlayerXrRig>();
         BindHead();
         ResetView();
-        TryInitDevice();
         PlayerWalkabilityUtility.ApplyWalkabilityRules();
+    }
+
+    void EnsureStickActions()
+    {
+        if (_moveAction == null)
+        {
+            _moveAction = new InputAction("XRMove", InputActionType.Value, expectedControlType: "Vector2");
+            _moveAction.AddBinding("<XRController>{LeftHand}/thumbstick");
+            _moveAction.AddBinding("<XRController>{LeftHand}/joystick");
+            _moveAction.AddBinding("<XRController>{LeftHand}/primary2DAxis");
+            _moveAction.AddBinding("<Gamepad>/leftStick");
+        }
+
+        if (_turnAction == null)
+        {
+            _turnAction = new InputAction("XRTurn", InputActionType.Value, expectedControlType: "Vector2");
+            _turnAction.AddBinding("<XRController>{RightHand}/thumbstick");
+            _turnAction.AddBinding("<XRController>{RightHand}/joystick");
+            _turnAction.AddBinding("<XRController>{RightHand}/primary2DAxis");
+            _turnAction.AddBinding("<Gamepad>/rightStick");
+        }
     }
 
     void BindHead()
@@ -82,8 +128,15 @@ public class PlayerLocomotion : MonoBehaviour
             _horizontalVelocity = Vector3.zero;
             return;
         }
-        if (!_deviceValid) TryInitDevice();
+
         BindHead();
+        if (_cc == null)
+            _cc = GetComponent<CharacterController>();
+        if (_cc == null || !_cc.enabled)
+        {
+            _horizontalVelocity = Vector3.zero;
+            return;
+        }
 
         if (!PlayerXrRig.XrActive)
             ApplyDesktopLook();
@@ -130,7 +183,8 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         Vector2 stick = ReadMoveStick();
-        if (stick.sqrMagnitude > 0.0225f)
+        float dz = stickDeadzone * stickDeadzone;
+        if (stick.sqrMagnitude > dz)
             dir += new Vector3(stick.x, 0f, stick.y);
 
         if (dir.sqrMagnitude < 0.0001f) return Vector3.zero;
@@ -147,31 +201,52 @@ public class PlayerLocomotion : MonoBehaviour
     void ApplyStickTurn()
     {
         Vector2 turn = ReadTurnStick();
-        if (Mathf.Abs(turn.x) < 0.25f) return;
+        if (Mathf.Abs(turn.x) < stickDeadzone) return;
         transform.Rotate(0f, turn.x * lookSpeed * Time.deltaTime, 0f);
     }
 
     Vector2 ReadMoveStick()
     {
-        Vector2 v = ReadThumbstick(XRController.leftHand);
-        if (v.sqrMagnitude < 0.01f)
+        Vector2 v = ReadActionStick(_moveAction);
+        if (v.sqrMagnitude < 0.0001f)
+            v = ReadThumbstick(XRController.leftHand);
+        if (v.sqrMagnitude < 0.0001f)
+            v = ReadAnyHandStick(isLeft: true);
+        if (v.sqrMagnitude < 0.0001f)
             v = ReadLegacyStick(XRNode.LeftHand);
-        if (v.sqrMagnitude < 0.01f && Gamepad.current != null)
+        if (v.sqrMagnitude < 0.0001f && Gamepad.current != null)
             v = Gamepad.current.leftStick.ReadValue();
         return v;
     }
 
     Vector2 ReadTurnStick()
     {
-        Vector2 v = ReadThumbstick(XRController.rightHand);
-        if (v.sqrMagnitude < 0.01f)
+        Vector2 v = ReadActionStick(_turnAction);
+        if (v.sqrMagnitude < 0.0001f)
+            v = ReadThumbstick(XRController.rightHand);
+        if (v.sqrMagnitude < 0.0001f)
+            v = ReadAnyHandStick(isLeft: false);
+        if (v.sqrMagnitude < 0.0001f)
             v = ReadLegacyStick(XRNode.RightHand);
-        if (v.sqrMagnitude < 0.01f && Gamepad.current != null)
+        if (v.sqrMagnitude < 0.0001f && Gamepad.current != null)
             v = Gamepad.current.rightStick.ReadValue();
         return v;
     }
 
-    static Vector2 ReadThumbstick(UnityEngine.InputSystem.XR.XRController controller)
+    static Vector2 ReadActionStick(InputAction action)
+    {
+        if (action == null) return Vector2.zero;
+        try
+        {
+            return action.ReadValue<Vector2>();
+        }
+        catch
+        {
+            return Vector2.zero;
+        }
+    }
+
+    static Vector2 ReadThumbstick(XRController controller)
     {
         if (controller == null) return Vector2.zero;
         var stick = controller.TryGetChildControl<Vector2Control>("thumbstick")
@@ -180,29 +255,59 @@ public class PlayerLocomotion : MonoBehaviour
         return stick != null ? stick.ReadValue() : Vector2.zero;
     }
 
-    Vector2 ReadLegacyStick(XRNode node)
+    static Vector2 ReadAnyHandStick(bool isLeft)
+    {
+        foreach (var device in InputSystem.devices)
+        {
+            if (device == null || !device.added) continue;
+            bool match = HasUsage(device, isLeft
+                ? UnityEngine.InputSystem.CommonUsages.LeftHand
+                : UnityEngine.InputSystem.CommonUsages.RightHand);
+            if (!match)
+            {
+                string n = device.name ?? "";
+                match = isLeft
+                    ? n.IndexOf("Left", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    : n.IndexOf("Right", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            if (!match) continue;
+
+            var stick = device.TryGetChildControl<Vector2Control>("thumbstick")
+                        ?? device.TryGetChildControl<Vector2Control>("joystick")
+                        ?? device.TryGetChildControl<Vector2Control>("primary2DAxis");
+            if (stick == null) continue;
+            Vector2 v = stick.ReadValue();
+            if (v.sqrMagnitude > 0.0001f)
+                return v;
+        }
+        return Vector2.zero;
+    }
+
+    static bool HasUsage(InputDevice device, UnityEngine.InputSystem.Utilities.InternedString usage)
+    {
+        var usages = device.usages;
+        for (int i = 0; i < usages.Count; i++)
+        {
+            if (usages[i] == usage)
+                return true;
+        }
+        return false;
+    }
+
+    static Vector2 ReadLegacyStick(XRNode node)
     {
         var list = new System.Collections.Generic.List<XRInputDevice>();
         InputDevices.GetDevicesAtXRNode(node, list);
         foreach (var device in list)
         {
-            if (device.isValid && device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.primary2DAxis, out Vector2 stick)
-                && stick.sqrMagnitude > 0.01f)
+            if (!device.isValid) continue;
+            if (device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.primary2DAxis, out Vector2 stick)
+                && stick.sqrMagnitude > 0.0001f)
+                return stick;
+            if (device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.secondary2DAxis, out stick)
+                && stick.sqrMagnitude > 0.0001f)
                 return stick;
         }
         return Vector2.zero;
-    }
-
-    void TryInitDevice()
-    {
-        var list = new System.Collections.Generic.List<XRInputDevice>();
-        InputDevices.GetDevicesAtXRNode(XRNode.LeftHand, list);
-        if (list.Count > 0)
-        {
-            _leftDevice = list[0];
-            _deviceValid = _leftDevice.isValid;
-        }
-        if (!_deviceValid && XRController.leftHand != null)
-            _deviceValid = true;
     }
 }

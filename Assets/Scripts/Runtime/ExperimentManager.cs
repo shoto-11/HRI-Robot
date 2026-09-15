@@ -149,8 +149,16 @@ public class ExperimentManager : MonoBehaviour
             cameraOffset.localRotation = Quaternion.identity;
 
         _xrOrigin.GetComponent<PlayerLocomotion>()?.ResetView();
+        _xrOrigin.GetComponent<PlayerXrRig>()?.CalibrateEyeHeightToNominal();
 
-        if (cc != null) cc.enabled = true;
+        if (cc != null)
+        {
+            float h = FactoryLayout.StandingHeightM;
+            cc.height = h;
+            cc.center = new Vector3(0f, h * 0.5f, 0f);
+            cc.radius = FactoryLayout.PedestrianBodyRadiusM;
+            cc.enabled = true;
+        }
         PlayerSpawnUtility.ForceGrounded(cc);
         Physics.SyncTransforms();
     }

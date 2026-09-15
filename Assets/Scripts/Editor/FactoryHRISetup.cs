@@ -1158,7 +1158,9 @@ public static class FactoryHRISetup
         var origin = new GameObject("XR Origin");
         origin.transform.position = FactoryLayout.PlayerSpawnPosition;
         var cc = origin.AddComponent<CharacterController>();
-        cc.height = 1.8f;
+        cc.height = FactoryLayout.StandingHeightM;
+        cc.center = new Vector3(0f, FactoryLayout.StandingHeightM * 0.5f, 0f);
+        cc.radius = FactoryLayout.PedestrianBodyRadiusM;
         cc.center = new Vector3(0f, 0.9f, 0f);
         cc.radius = 0.3f;
         origin.AddComponent<PlayerXrRig>();

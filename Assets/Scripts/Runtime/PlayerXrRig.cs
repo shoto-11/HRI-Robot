@@ -114,9 +114,38 @@ public class PlayerXrRig : MonoBehaviour
         }
         else
         {
-            if (_cameraOffset.localPosition.sqrMagnitude < 0.01f)
-                _cameraOffset.localPosition = new Vector3(0f, 1.6f, 0f);
+            // Desktop: fixed eye height for ~170 cm person.
+            _cameraOffset.localPosition = new Vector3(0f, FactoryLayout.EyeHeightM, 0f);
+            _cameraOffset.localRotation = Quaternion.identity;
         }
+    }
+
+    /// <summary>
+    /// ケース開始時などに、現在の HMD 追跡を基準に目線を EyeHeightM（約 170 cm の人）へ合わせる。
+    /// </summary>
+    public void CalibrateEyeHeightToNominal()
+    {
+        EnsureCamera();
+        if (_cameraOffset == null || _camera == null) return;
+
+        if (!XrActive)
+        {
+            _cameraOffset.localPosition = new Vector3(0f, FactoryLayout.EyeHeightM, 0f);
+            _cameraOffset.localRotation = Quaternion.identity;
+            return;
+        }
+
+        // Floor 追跡の実測高さにオフセットを足し、ワールド目線を公称値へ揃える。
+        _cameraOffset.localPosition = Vector3.zero;
+        _cameraOffset.localRotation = Quaternion.identity;
+        Physics.SyncTransforms();
+
+        float tracked = _camera.transform.position.y - transform.position.y;
+        if (tracked < 0.4f || tracked > 2.4f)
+            tracked = FactoryLayout.EyeHeightM;
+
+        float dy = FactoryLayout.EyeHeightM - tracked;
+        _cameraOffset.localPosition = new Vector3(0f, dy, 0f);
     }
 
     void EnsureTrackedPose()
