@@ -183,6 +183,26 @@ def apply_boxplot_style(bp, colors: list[str]) -> None:
         line.set_markerfacecolor("white")
 
 
+def save_fig(fig: plt.Figure, path: Path) -> None:
+    """Atomic-ish save; falls back if the target PNG is locked in a viewer."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp.png")
+    try:
+        fig.savefig(tmp, dpi=160, facecolor="white")
+        tmp.replace(path)
+    except OSError:
+        alt = path.with_name(path.stem + "_new" + path.suffix)
+        fig.savefig(alt, dpi=160, facecolor="white")
+        print(f"warning: could not overwrite {path.name}; wrote {alt.name}")
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+        plt.close(fig)
+
+
 def plot_condition_bars(session_means: pd.DataFrame, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for col, ylabel, _note in METRICS:
@@ -221,8 +241,7 @@ def plot_condition_bars(session_means: pd.DataFrame, out_dir: Path) -> None:
         style_axes(ax)
         ax.legend(bars, labels, loc="lower right", frameon=True, fancybox=False, edgecolor="#888888")
         fig.tight_layout()
-        fig.savefig(out_dir / f"bar_{col}.png", dpi=160, facecolor="white")
-        plt.close(fig)
+        save_fig(fig, out_dir / f"bar_{col}.png")
 
 
 def plot_case_boxplots(trials: pd.DataFrame, out_dir: Path) -> None:
@@ -255,8 +274,7 @@ def plot_case_boxplots(trials: pd.DataFrame, out_dir: Path) -> None:
         handles = [Patch(facecolor=c, edgecolor="black", label=l) for c, l in zip(colors, labels)]
         ax.legend(handles=handles, loc="lower right", frameon=True, fancybox=False, edgecolor="#888888")
         fig.tight_layout()
-        fig.savefig(out_dir / f"box_case_{col}.png", dpi=160, facecolor="white")
-        plt.close(fig)
+        save_fig(fig, out_dir / f"box_case_{col}.png")
 
 
 def plot_learning_curves(trials: pd.DataFrame, out_dir: Path) -> None:
@@ -285,8 +303,7 @@ def plot_learning_curves(trials: pd.DataFrame, out_dir: Path) -> None:
     style_axes(ax)
     ax.legend(loc="lower right", frameon=True, fancybox=False, edgecolor="#888888")
     fig.tight_layout()
-    fig.savefig(out_dir / "learning_CompletionTime_s.png", dpi=160, facecolor="white")
-    plt.close(fig)
+    save_fig(fig, out_dir / "learning_CompletionTime_s.png")
 
 
 def export_collision_events(trials: pd.DataFrame, out_path: Path) -> pd.DataFrame:
