@@ -143911,7 +143911,6 @@ MonoBehaviour:
   maxPitch: 50
   hmdTransform: {fileID: 0}
   pitchPivot: {fileID: 0}
-  stickDeadzone: 0.15
 --- !u!143 &1118407348
 CharacterController:
   m_ObjectHideFlags: 0
@@ -198842,7 +198841,7 @@ Light:
   m_InnerSpotAngle: 21.80208
   m_CookieSize2D: {x: 0.5, y: 0.5}
   m_Shadows:
-    m_Type: 1
+    m_Type: 2
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1

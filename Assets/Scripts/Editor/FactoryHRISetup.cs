@@ -962,8 +962,7 @@ public static class FactoryHRISetup
         light.type = LightType.Directional;
         light.intensity = 1.85f;
         light.color = new Color(1f, 0.98f, 0.94f);
-        // Soft shadows are expensive on Quest / Link; Hard is enough for the experiment.
-        light.shadows = LightShadows.Hard;
+        light.shadows = LightShadows.Soft;
     }
 
     static int RepairAllWarehouseMaterialAssets()
