@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 危険度に応じて経路（走行中は AGV 本体と同幅の長方形リボン）または停止線を描画する。
+/// 危険度に応じて経路（走行中は AGV 本体と同幅の長方形リボン）または停止線（同幅の短冊）を描画する。
 /// 表示制限は水平距離 d ≤ D_max（FactoryLayout.DisplayDistanceMax）のみ。
-/// 曲がり角は単一メッシュのマイター接合で描くため、半透明の二重描画で濃くならない。
+/// 経路・停止線とも単一メッシュで描き、半透明の二重描画で濃くならない。
 /// </summary>
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
@@ -94,8 +94,8 @@ public class PathRenderer : MonoBehaviour
 
         if (risk.IsStopped)
         {
-            ClearRibbon();
-            DrawStopLine(new Color(color.r, color.g, color.b, alpha), path, sortingOrder);
+            if (stopLineRenderer != null) stopLineRenderer.enabled = false;
+            BuildStopBar(path, new Color(color.r, color.g, color.b, alpha));
         }
         else
         {
@@ -128,24 +128,47 @@ public class PathRenderer : MonoBehaviour
         return Vector3.Distance(a, b) <= DISPLAY_PLAYER_DISTANCE;
     }
 
-    void DrawStopLine(Color color, Vector3[] path, int sortingOrder)
+    /// <summary>
+    /// 停止線は経路リボンと同じ半幅（AGV 本体幅）の短冊メッシュ。
+    /// </summary>
+    void BuildStopBar(Vector3[] path, Color color)
     {
-        if (stopLineRenderer == null) return;
-        stopLineRenderer.enabled = true;
+        EnsureMaterial();
         Vector3[] display = BuildCenterline(path);
-        if (display.Length < 1) return;
+        if (display.Length < 1)
+        {
+            ClearRibbon();
+            return;
+        }
+
+        float halfW = ResolveFootprint().halfWidth;
+        const float halfDepth = 0.09f;
         Vector3 frontPos = display[0];
         Vector3 forwardDir = display.Length > 1
             ? FlatDir(display[1] - display[0])
             : GetFallbackForward();
         Vector3 perpendicular = Vector3.Cross(Vector3.up, forwardDir).normalized;
-        stopLineRenderer.positionCount = 2;
-        float halfW = ResolveFootprint().halfWidth;
-        stopLineRenderer.SetPosition(0, frontPos + perpendicular * halfW);
-        stopLineRenderer.SetPosition(1, frontPos - perpendicular * halfW);
-        stopLineRenderer.startColor = stopLineRenderer.endColor = color;
-        stopLineRenderer.startWidth = stopLineRenderer.endWidth = 0.18f;
-        stopLineRenderer.sortingOrder = sortingOrder;
+
+        Vector3 fl = frontPos - perpendicular * halfW - forwardDir * halfDepth;
+        Vector3 fr = frontPos + perpendicular * halfW - forwardDir * halfDepth;
+        Vector3 bl = frontPos - perpendicular * halfW + forwardDir * halfDepth;
+        Vector3 br = frontPos + perpendicular * halfW + forwardDir * halfDepth;
+
+        _verts.Clear();
+        _tris.Clear();
+        _verts.Add(transform.InverseTransformPoint(fl));
+        _verts.Add(transform.InverseTransformPoint(fr));
+        _verts.Add(transform.InverseTransformPoint(bl));
+        _verts.Add(transform.InverseTransformPoint(br));
+        // fl, bl, fr / fr, bl, br → 法線 +Y
+        _tris.Add(0);
+        _tris.Add(2);
+        _tris.Add(1);
+        _tris.Add(1);
+        _tris.Add(2);
+        _tris.Add(3);
+
+        ApplyMesh(color);
     }
 
     void BuildRibbon(Vector3[] path, Color color)
@@ -199,6 +222,11 @@ public class PathRenderer : MonoBehaviour
             }
         }
 
+        ApplyMesh(color);
+    }
+
+    void ApplyMesh(Color color)
+    {
         _mesh.Clear();
         _mesh.SetVertices(_verts);
         _mesh.SetTriangles(_tris, 0);
