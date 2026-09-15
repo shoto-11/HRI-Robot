@@ -283,7 +283,7 @@ public class PlayerLocomotion : MonoBehaviour
         return Vector2.zero;
     }
 
-    static bool HasUsage(InputDevice device, UnityEngine.InputSystem.Utilities.InternedString usage)
+    static bool HasUsage(UnityEngine.InputSystem.InputDevice device, UnityEngine.InputSystem.Utilities.InternedString usage)
     {
         var usages = device.usages;
         for (int i = 0; i < usages.Count; i++)
