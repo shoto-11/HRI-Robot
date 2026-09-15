@@ -3,6 +3,8 @@ using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.XR;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
 
@@ -18,6 +20,7 @@ public class PlayerXrRig : MonoBehaviour
     Transform _cameraOffset;
     Camera _camera;
     TrackedPoseDriver _poseDriver;
+    bool _foveationApplied;
 
     void Awake()
     {
@@ -195,12 +198,49 @@ public class PlayerXrRig : MonoBehaviour
 
     static void ApplyXrPerformance()
     {
+        // 見た目を大きく変えず、Ultra の無駄なコストだけ落とす（ライトは触らない）。
         Application.targetFrameRate = -1;
         QualitySettings.vSyncCount = 0;
-        QualitySettings.shadowDistance = 25f;
-        QualitySettings.lodBias = 0.7f;
+        QualitySettings.shadowCascades = 1; // Ultra 既定の 4 は見た目ほぼ同じで高い
+        QualitySettings.shadowDistance = 30f;
+        QualitySettings.realtimeReflectionProbes = false;
+        QualitySettings.lodBias = 1.0f;
         QualitySettings.maximumLODLevel = 0;
+        QualitySettings.particleRaycastBudget = 64;
+
+        var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+        if (urp != null)
+        {
+            // 解像度・追加ライト数は維持。影マップ解像度と HDR だけ抑える。
+            urp.shadowDistance = 30f;
+            urp.mainLightShadowmapResolution = 1024;
+            urp.supportsHDR = false;
+            urp.additionalLightsCookieResolution = 512;
+        }
+
         if (XRSettings.enabled)
-            XRSettings.eyeTextureResolutionScale = 0.85f;
+            XRSettings.eyeTextureResolutionScale = 0.9f;
+    }
+
+    void LateUpdate()
+    {
+        if (_foveationApplied || !XrActive) return;
+        if (!EnableFixedFoveatedRendering()) return;
+        _foveationApplied = true;
+    }
+
+    static bool EnableFixedFoveatedRendering()
+    {
+        var displays = new List<XRDisplaySubsystem>();
+        SubsystemManager.GetSubsystems(displays);
+        bool applied = false;
+        foreach (var display in displays)
+        {
+            if (display == null || !display.running) continue;
+            // 中心視野はそのまま、周辺だけ間引く（見た目への影響が小さい）。
+            display.foveatedRenderingLevel = 0.75f;
+            applied = true;
+        }
+        return applied;
     }
 }
