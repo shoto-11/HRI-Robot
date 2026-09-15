@@ -21,6 +21,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.patches import Patch
 
 DATA_ROOT = Path(r"C:\lab\Lessismore-Robot-data")
 ORIGIN = DATA_ROOT / "origin"
@@ -34,6 +35,18 @@ CONDITION_ALIASES = {
     "no-ar": "NoAR",
     "no_ar": "NoAR",
     "proposed": "Proposed",
+}
+
+# Paper-like palette (ref: grouped boxplot — soft red / blue / green, black edges)
+CONDITION_COLORS = {
+    "Baseline": "#F29F9B",
+    "NoAR": "#85B7F9",
+    "Proposed": "#A9F5A9",
+}
+CONDITION_LABELS = {
+    "Baseline": "Baseline",
+    "NoAR": "No-AR",
+    "Proposed": "Proposed",
 }
 
 # Primary DVs aligned with H1–H3 in paper/sections/03_experiment.tex
@@ -143,17 +156,45 @@ def condition_summary(session_means: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def style_axes(ax: plt.Axes) -> None:
+    """White face, black spines, horizontal dashed gray grid only. No title."""
+    ax.set_facecolor("white")
+    ax.set_axisbelow(True)
+    ax.yaxis.grid(True, linestyle="--", linewidth=0.8, color="#B0B0B0", alpha=0.85)
+    ax.xaxis.grid(False)
+    for spine in ax.spines.values():
+        spine.set_color("black")
+        spine.set_linewidth(1.0)
+    ax.tick_params(colors="black")
+    ax.set_title("")
+
+
+def apply_boxplot_style(bp, colors: list[str]) -> None:
+    for patch, color in zip(bp["boxes"], colors):
+        patch.set_facecolor(color)
+        patch.set_edgecolor("black")
+        patch.set_linewidth(1.0)
+    for key in ("whiskers", "caps", "medians"):
+        for line in bp[key]:
+            line.set_color("black")
+            line.set_linewidth(1.0)
+    for line in bp.get("fliers", []):
+        line.set_markeredgecolor("black")
+        line.set_markerfacecolor("white")
+
+
 def plot_condition_bars(session_means: pd.DataFrame, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    for col, ylabel, note in METRICS:
+    for col, ylabel, _note in METRICS:
         if col not in session_means.columns:
             continue
-        means, sems, labels = [], [], []
+        means, sems, labels, colors = [], [], [], []
         for cond in CONDITION_ORDER:
             sub = session_means.loc[session_means["Condition"] == cond, col]
             if sub.empty:
                 continue
-            labels.append(cond)
+            labels.append(CONDITION_LABELS[cond])
+            colors.append(CONDITION_COLORS[cond])
             means.append(sub.mean(skipna=True))
             n = sub.notna().sum()
             sd = sub.std(skipna=True, ddof=1) if n > 1 else 0.0
@@ -162,16 +203,25 @@ def plot_condition_bars(session_means: pd.DataFrame, out_dir: Path) -> None:
         if not labels:
             continue
 
-        fig, ax = plt.subplots(figsize=(5.2, 3.6))
+        fig, ax = plt.subplots(figsize=(5.2, 3.6), facecolor="white")
         x = np.arange(len(labels))
-        ax.bar(x, means, yerr=sems, capsize=4, color=["#4C78A8", "#F58518", "#54A24B"][: len(labels)])
+        bars = ax.bar(
+            x,
+            means,
+            yerr=sems,
+            capsize=4,
+            color=colors,
+            edgecolor="black",
+            linewidth=1.0,
+            error_kw={"ecolor": "black", "elinewidth": 1.0, "capthick": 1.0},
+        )
         ax.set_xticks(x)
         ax.set_xticklabels(labels)
         ax.set_ylabel(ylabel)
-        ax.set_title(f"{col}\n({note})")
-        ax.grid(axis="y", alpha=0.3)
+        style_axes(ax)
+        ax.legend(bars, labels, loc="lower right", frameon=True, fancybox=False, edgecolor="#888888")
         fig.tight_layout()
-        fig.savefig(out_dir / f"bar_{col}.png", dpi=160)
+        fig.savefig(out_dir / f"bar_{col}.png", dpi=160, facecolor="white")
         plt.close(fig)
 
 
@@ -181,42 +231,61 @@ def plot_case_boxplots(trials: pd.DataFrame, out_dir: Path) -> None:
     for col, ylabel, _ in METRICS:
         if col not in trials.columns:
             continue
-        data, labels = [], []
+        data, labels, colors = [], [], []
         for cond in CONDITION_ORDER:
             vals = trials.loc[trials["Condition"] == cond, col].dropna().to_numpy()
             if len(vals) == 0:
                 continue
             data.append(vals)
-            labels.append(cond)
+            labels.append(CONDITION_LABELS[cond])
+            colors.append(CONDITION_COLORS[cond])
         if not data:
             continue
-        fig, ax = plt.subplots(figsize=(5.2, 3.6))
-        ax.boxplot(data, tick_labels=labels, showmeans=True)
+        fig, ax = plt.subplots(figsize=(5.2, 3.6), facecolor="white")
+        bp = ax.boxplot(
+            data,
+            tick_labels=labels,
+            patch_artist=True,
+            showfliers=True,
+            medianprops={"color": "black", "linewidth": 1.0},
+        )
+        apply_boxplot_style(bp, colors)
         ax.set_ylabel(ylabel)
-        ax.set_title(f"{col} (case-level)")
-        ax.grid(axis="y", alpha=0.3)
+        style_axes(ax)
+        handles = [Patch(facecolor=c, edgecolor="black", label=l) for c, l in zip(colors, labels)]
+        ax.legend(handles=handles, loc="lower right", frameon=True, fancybox=False, edgecolor="#888888")
         fig.tight_layout()
-        fig.savefig(out_dir / f"box_case_{col}.png", dpi=160)
+        fig.savefig(out_dir / f"box_case_{col}.png", dpi=160, facecolor="white")
         plt.close(fig)
 
 
 def plot_learning_curves(trials: pd.DataFrame, out_dir: Path) -> None:
     if "CompletionTime_s" not in trials.columns:
         return
-    fig, ax = plt.subplots(figsize=(6.2, 3.8))
-    for cond, color in zip(CONDITION_ORDER, ["#4C78A8", "#F58518", "#54A24B"]):
+    fig, ax = plt.subplots(figsize=(6.2, 3.8), facecolor="white")
+    for cond in CONDITION_ORDER:
         sub = trials[trials["Condition"] == cond]
         if sub.empty:
             continue
         g = sub.groupby("CaseIndex")["CompletionTime_s"].agg(["mean", "sem"])
-        ax.errorbar(g.index.astype(float), g["mean"], yerr=g["sem"], label=cond, color=color, marker="o")
+        ax.errorbar(
+            g.index.astype(float),
+            g["mean"],
+            yerr=g["sem"],
+            label=CONDITION_LABELS[cond],
+            color=CONDITION_COLORS[cond],
+            marker="o",
+            markeredgecolor="black",
+            ecolor="black",
+            elinewidth=1.0,
+            capsize=3,
+        )
     ax.set_xlabel("Case index")
     ax.set_ylabel("Completion time (s)")
-    ax.set_title("Learning / case difficulty")
-    ax.legend()
-    ax.grid(alpha=0.3)
+    style_axes(ax)
+    ax.legend(loc="lower right", frameon=True, fancybox=False, edgecolor="#888888")
     fig.tight_layout()
-    fig.savefig(out_dir / "learning_CompletionTime_s.png", dpi=160)
+    fig.savefig(out_dir / "learning_CompletionTime_s.png", dpi=160, facecolor="white")
     plt.close(fig)
 
 
