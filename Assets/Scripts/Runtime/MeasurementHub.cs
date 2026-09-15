@@ -14,6 +14,9 @@ public class MeasurementHub : MonoBehaviour
     [SerializeField] bool evaluationEnabled = true;
     public bool EvaluationEnabled => evaluationEnabled;
 
+    /// <summary>評価 xlsx / collision_log の保存先。</summary>
+    public const string EvaluationOutputDir = @"C:\lab\Lessismore-Robot-data\origin";
+
     public CollisionCounter Collision { get; private set; }
     public TaskTimer Timer { get; private set; }
     public PathDeviationTracker PathTracker { get; private set; }
@@ -35,12 +38,20 @@ public class MeasurementHub : MonoBehaviour
 
     public string LastExportPath => _xlsxPath;
 
+    public static string EnsureEvaluationOutputDir()
+    {
+        Directory.CreateDirectory(EvaluationOutputDir);
+        return EvaluationOutputDir;
+    }
+
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         _sessionId = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        _xlsxPath = Path.Combine(Application.persistentDataPath, $"HRI_AGV_Result_{_sessionId}.xlsx");
+        string dir = EnsureEvaluationOutputDir();
+        _xlsxPath = Path.Combine(dir, $"HRI_AGV_Result_{_sessionId}.xlsx");
+        Debug.Log($"[MeasurementHub] 評価データ保存先: {_xlsxPath}");
     }
 
     void Start()
@@ -165,7 +176,7 @@ public class MeasurementHub : MonoBehaviour
     [ContextMenu("結果ファイルのフォルダを開く")]
     void RevealCsvFolder()
     {
-        string dir = Application.persistentDataPath;
+        string dir = EnsureEvaluationOutputDir();
         Debug.Log($"[MeasurementHub] 保存先: {dir}");
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.RevealInFinder(string.IsNullOrEmpty(_xlsxPath) ? dir : _xlsxPath);

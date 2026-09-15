@@ -65,7 +65,7 @@ public class CollisionCounter : MonoBehaviour
             Debug.Log($"[衝突] 人間と AGV {agent.name} (ID={robotId}) が接触（累計={Count} 距離={dist:F2}m t={t:F2}s）");
             try
             {
-                string path = Path.Combine(Application.persistentDataPath, "collision_log.txt");
+                string path = Path.Combine(MeasurementHub.EnsureEvaluationOutputDir(), "collision_log.txt");
                 File.AppendAllText(path, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{agent.name}\t{dist:F3}\n");
             }
             catch { /* ignore IO */ }
