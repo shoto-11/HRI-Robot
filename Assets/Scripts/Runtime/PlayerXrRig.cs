@@ -215,7 +215,6 @@ public class PlayerXrRig : MonoBehaviour
             urp.shadowDistance = 30f;
             urp.mainLightShadowmapResolution = 1024;
             urp.supportsHDR = false;
-            urp.additionalLightsCookieResolution = 512;
         }
 
         if (XRSettings.enabled)
