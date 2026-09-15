@@ -95,12 +95,36 @@ namespace HRIRobot.EditorTools
                 bool assigned = XRPackageMetadataStore.AssignLoader(settings.Manager, typeof(OpenXRLoader).FullName, group);
                 Debug.Log($"[HRI ProjectSetup] OpenXR loader for {group}: {(assigned ? "assigned" : "already assigned or unavailable")}");
 
+                EnableQuestControllerProfiles(group);
+
                 EditorUtility.SetDirty(buildTargetSettings);
             }
             catch (Exception e)
             {
                 Debug.LogWarning($"[HRI ProjectSetup] XR setup for {group} failed ({e.Message}). Configure manually via Project Settings > XR Plug-in Management.");
             }
+        }
+
+        static void EnableQuestControllerProfiles(BuildTargetGroup group)
+        {
+            var openXr = OpenXRSettings.GetSettingsForBuildTargetGroup(group);
+            if (openXr == null) return;
+
+            foreach (var feature in openXr.GetFeatures<UnityEngine.XR.OpenXR.Features.OpenXRFeature>())
+            {
+                if (feature == null) continue;
+                string n = feature.GetType().Name;
+                bool want =
+                    n.Contains("OculusTouchController")
+                    || n.Contains("MetaQuestTouch")
+                    || n.Contains("KHRSimpleController")
+                    || (group == BuildTargetGroup.Android && (n.Contains("MetaQuestFeature") || n.Contains("OculusQuestFeature")));
+                if (!want || feature.enabled) continue;
+                feature.enabled = true;
+                EditorUtility.SetDirty(feature);
+                Debug.Log($"[HRI ProjectSetup] Enabled OpenXR feature {n} for {group}");
+            }
+            EditorUtility.SetDirty(openXr);
         }
     }
 }

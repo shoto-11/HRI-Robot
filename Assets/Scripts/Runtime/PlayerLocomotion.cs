@@ -207,13 +207,16 @@ public class PlayerLocomotion : MonoBehaviour
 
     Vector2 ReadMoveStick()
     {
-        Vector2 v = ReadActionStick(_moveAction);
+        // OpenXR 有効時は Legacy XR InputDevices が最も安定するので先に読む。
+        Vector2 v = ReadLegacyStick(XRNode.LeftHand);
+        if (v.sqrMagnitude < 0.0001f)
+            v = ReadLegacyByCharacteristics(left: true);
+        if (v.sqrMagnitude < 0.0001f)
+            v = ReadActionStick(_moveAction);
         if (v.sqrMagnitude < 0.0001f)
             v = ReadThumbstick(XRController.leftHand);
         if (v.sqrMagnitude < 0.0001f)
             v = ReadAnyHandStick(isLeft: true);
-        if (v.sqrMagnitude < 0.0001f)
-            v = ReadLegacyStick(XRNode.LeftHand);
         if (v.sqrMagnitude < 0.0001f && Gamepad.current != null)
             v = Gamepad.current.leftStick.ReadValue();
         return v;
@@ -221,13 +224,15 @@ public class PlayerLocomotion : MonoBehaviour
 
     Vector2 ReadTurnStick()
     {
-        Vector2 v = ReadActionStick(_turnAction);
+        Vector2 v = ReadLegacyStick(XRNode.RightHand);
+        if (v.sqrMagnitude < 0.0001f)
+            v = ReadLegacyByCharacteristics(left: false);
+        if (v.sqrMagnitude < 0.0001f)
+            v = ReadActionStick(_turnAction);
         if (v.sqrMagnitude < 0.0001f)
             v = ReadThumbstick(XRController.rightHand);
         if (v.sqrMagnitude < 0.0001f)
             v = ReadAnyHandStick(isLeft: false);
-        if (v.sqrMagnitude < 0.0001f)
-            v = ReadLegacyStick(XRNode.RightHand);
         if (v.sqrMagnitude < 0.0001f && Gamepad.current != null)
             v = Gamepad.current.rightStick.ReadValue();
         return v;
@@ -296,18 +301,46 @@ public class PlayerLocomotion : MonoBehaviour
 
     static Vector2 ReadLegacyStick(XRNode node)
     {
+        var device = InputDevices.GetDeviceAtXRNode(node);
+        if (TryReadAxis(device, out Vector2 stick))
+            return stick;
+
         var list = new System.Collections.Generic.List<XRInputDevice>();
         InputDevices.GetDevicesAtXRNode(node, list);
-        foreach (var device in list)
+        foreach (var d in list)
         {
-            if (!device.isValid) continue;
-            if (device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.primary2DAxis, out Vector2 stick)
-                && stick.sqrMagnitude > 0.0001f)
-                return stick;
-            if (device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.secondary2DAxis, out stick)
-                && stick.sqrMagnitude > 0.0001f)
+            if (TryReadAxis(d, out stick))
                 return stick;
         }
         return Vector2.zero;
+    }
+
+    static Vector2 ReadLegacyByCharacteristics(bool left)
+    {
+        var devices = new System.Collections.Generic.List<XRInputDevice>();
+        InputDevices.GetDevices(devices);
+        var want = InputDeviceCharacteristics.HeldInHand | InputDeviceCharacteristics.Controller
+                   | (left ? InputDeviceCharacteristics.Left : InputDeviceCharacteristics.Right);
+        foreach (var d in devices)
+        {
+            if (!d.isValid) continue;
+            if ((d.characteristics & want) != want) continue;
+            if (TryReadAxis(d, out Vector2 stick))
+                return stick;
+        }
+        return Vector2.zero;
+    }
+
+    static bool TryReadAxis(XRInputDevice device, out Vector2 stick)
+    {
+        stick = Vector2.zero;
+        if (!device.isValid) return false;
+        if (device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.primary2DAxis, out stick)
+            && stick.sqrMagnitude > 0.0001f)
+            return true;
+        if (device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.secondary2DAxis, out stick)
+            && stick.sqrMagnitude > 0.0001f)
+            return true;
+        return false;
     }
 }
