@@ -3,6 +3,8 @@ using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.XR;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
 
@@ -15,9 +17,15 @@ public class PlayerXrRig : MonoBehaviour
 {
     public static bool XrActive { get; private set; }
 
+    const float XrEyeTextureScale = 0.72f;
+    const float XrRenderScale = 0.75f;
+    const float XrShadowDistance = 12f;
+    const int XrAdditionalLightsPerObject = 1;
+
     Transform _cameraOffset;
     Camera _camera;
     TrackedPoseDriver _poseDriver;
+    bool _xrPerfApplied;
 
     void Awake()
     {
@@ -43,8 +51,9 @@ public class PlayerXrRig : MonoBehaviour
             return;
         if (XrActive) return;
         XrActive = DetectXrDisplay();
-        if (XrActive)
-            ConfigureForMode();
+        if (!XrActive) return;
+        ConfigureForMode();
+        ApplyXrPerformance();
     }
 
     public Camera HeadCamera => _camera;
@@ -193,14 +202,96 @@ public class PlayerXrRig : MonoBehaviour
         return XRSettings.isDeviceActive;
     }
 
-    static void ApplyXrPerformance()
+    void ApplyXrPerformance()
     {
+        // Editor の Game ビュー単体でも重くなりすぎないよう、常に軽い側へ寄せる。
         Application.targetFrameRate = -1;
         QualitySettings.vSyncCount = 0;
-        QualitySettings.shadowDistance = 25f;
-        QualitySettings.lodBias = 0.7f;
+        QualitySettings.shadowDistance = XrShadowDistance;
+        QualitySettings.shadows = ShadowQuality.HardOnly;
+        QualitySettings.shadowResolution = ShadowResolution.Low;
+        QualitySettings.shadowCascades = 1;
+        QualitySettings.lodBias = 0.55f;
         QualitySettings.maximumLODLevel = 0;
+        QualitySettings.realtimeReflectionProbes = false;
+        QualitySettings.particleRaycastBudget = 16;
+        QualitySettings.antiAliasing = 2;
+
+        var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+        if (urp != null)
+        {
+            urp.supportsHDR = false;
+            urp.renderScale = XrRenderScale;
+            urp.shadowDistance = XrShadowDistance;
+            urp.mainLightShadowmapResolution = 1024;
+            urp.msaaSampleCount = 2;
+            urp.maxAdditionalLightsCount = XrAdditionalLightsPerObject;
+        }
+
+        if (!DetectXrDisplay() && !XRSettings.enabled)
+            return;
+        if (_xrPerfApplied) return;
+        _xrPerfApplied = true;
+
         if (XRSettings.enabled)
-            XRSettings.eyeTextureResolutionScale = 0.85f;
+            XRSettings.eyeTextureResolutionScale = XrEyeTextureScale;
+
+        TrimRealtimeLightsForXr();
+        EnableFixedFoveatedRendering();
+        Debug.Log("[PlayerXrRig] XR performance mode: lower scale, hard shadows, point lights off.");
+    }
+
+    static void TrimRealtimeLightsForXr()
+    {
+        // 倉庫アセット由来のポイントライト多数が Quest / Link の主ボトルネック。
+        int disabled = 0;
+        foreach (var light in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+        {
+            if (light == null) continue;
+            if (light.type == LightType.Directional)
+            {
+                light.shadows = LightShadows.Hard;
+                continue;
+            }
+
+            if (light.type == LightType.Point || light.type == LightType.Spot)
+            {
+                if (!light.enabled) continue;
+                light.enabled = false;
+                disabled++;
+            }
+        }
+
+        if (RenderSettings.ambientMode == UnityEngine.AmbientMode.Flat
+            || RenderSettings.ambientMode == UnityEngine.AmbientMode.Trilight)
+        {
+            RenderSettings.ambientIntensity = Mathf.Max(RenderSettings.ambientIntensity, 1.15f);
+        }
+        else
+        {
+            RenderSettings.ambientIntensity = Mathf.Max(RenderSettings.ambientIntensity, 1.05f);
+        }
+
+        if (disabled > 0)
+            Debug.Log($"[PlayerXrRig] Disabled {disabled} point/spot lights for XR frame time.");
+    }
+
+    static void EnableFixedFoveatedRendering()
+    {
+        var displays = new List<XRDisplaySubsystem>();
+        SubsystemManager.GetSubsystems(displays);
+        foreach (var display in displays)
+        {
+            if (display == null || !display.running) continue;
+            try
+            {
+                display.foveatedRenderingLevel = 1f;
+                display.foveatedRenderingFlags = XRDisplaySubsystem.FoveatedRenderingFlags.None;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[PlayerXrRig] Foveated rendering unavailable ({e.Message}).");
+            }
+        }
     }
 }

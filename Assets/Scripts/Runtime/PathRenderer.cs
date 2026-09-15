@@ -28,8 +28,14 @@ public class PathRenderer : MonoBehaviour
     MaterialPropertyBlock _mpb;
     float _cachedWidth = -1f;
     float _cachedHalfLength = -1f;
+    int _lastPathVersion = int.MinValue;
+    float _lastAlpha = -1f;
+    Color _lastColor;
+    bool _lastStopped;
+    int _frameOffset;
     static readonly List<Vector3> _centers = new(64);
     static readonly List<Vector3> _verts = new(128);
+    static readonly List<Vector3> _normals = new(128);
     static readonly List<int> _tris = new(256);
     static readonly Vector3[] _boundCorners = new Vector3[8];
 
@@ -41,6 +47,7 @@ public class PathRenderer : MonoBehaviour
         _mesh.MarkDynamic();
         _meshFilter.sharedMesh = _mesh;
         _mpb = new MaterialPropertyBlock();
+        _frameOffset = GetInstanceID() & 1;
 
         var legacy = GetComponent<LineRenderer>();
         if (legacy != null) legacy.enabled = false;
@@ -69,6 +76,10 @@ public class PathRenderer : MonoBehaviour
             return;
         }
 
+        // 複数 AGV のメッシュ再構築をフレーム分散して CPU スパイクを抑える。
+        if (((Time.frameCount + _frameOffset) & 1) != 0 && _meshRenderer != null && _meshRenderer.enabled)
+            return;
+
         bool modeVisible = mode == AGVPathVisualizer.VisMode.Baseline || risk.isVisible;
         Vector3[] path = agv != null ? agv.plannedPath : null;
         if (!modeVisible || path == null || path.Length < 2 || !IsWithinPlayerRange())
@@ -92,7 +103,24 @@ public class PathRenderer : MonoBehaviour
         int sortingOrder = Mathf.RoundToInt(risk.currentScore * 100);
         _meshRenderer.sortingOrder = sortingOrder;
 
-        if (risk.IsStopped)
+        bool stopped = risk.IsStopped;
+        int pathVersion = path.Length * 397
+            ^ path[0].GetHashCode()
+            ^ path[path.Length - 1].GetHashCode()
+            ^ (agv != null ? agv.transform.position.GetHashCode() : 0);
+        if (_meshRenderer.enabled
+            && pathVersion == _lastPathVersion
+            && stopped == _lastStopped
+            && Mathf.Abs(alpha - _lastAlpha) < 0.02f
+            && ApproximatelyColor(color, _lastColor))
+            return;
+
+        _lastPathVersion = pathVersion;
+        _lastStopped = stopped;
+        _lastAlpha = alpha;
+        _lastColor = color;
+
+        if (stopped)
         {
             if (stopLineRenderer != null) stopLineRenderer.enabled = false;
             BuildStopBar(path, new Color(color.r, color.g, color.b, alpha));
@@ -104,8 +132,16 @@ public class PathRenderer : MonoBehaviour
         }
     }
 
+    static bool ApproximatelyColor(Color a, Color b)
+    {
+        return Mathf.Abs(a.r - b.r) < 0.02f
+            && Mathf.Abs(a.g - b.g) < 0.02f
+            && Mathf.Abs(a.b - b.b) < 0.02f;
+    }
+
     void Hide()
     {
+        _lastPathVersion = int.MinValue;
         ClearRibbon();
         if (stopLineRenderer != null) stopLineRenderer.enabled = false;
     }
@@ -134,8 +170,7 @@ public class PathRenderer : MonoBehaviour
     void BuildStopBar(Vector3[] path, Color color)
     {
         EnsureMaterial();
-        Vector3[] display = BuildCenterline(path);
-        if (display.Length < 1)
+        if (!BuildCenterline(path) || _centers.Count < 1)
         {
             ClearRibbon();
             return;
@@ -143,9 +178,9 @@ public class PathRenderer : MonoBehaviour
 
         float halfW = ResolveFootprint().halfWidth;
         const float halfDepth = 0.09f;
-        Vector3 frontPos = display[0];
-        Vector3 forwardDir = display.Length > 1
-            ? FlatDir(display[1] - display[0])
+        Vector3 frontPos = _centers[0];
+        Vector3 forwardDir = _centers.Count > 1
+            ? FlatDir(_centers[1] - _centers[0])
             : GetFallbackForward();
         Vector3 perpendicular = Vector3.Cross(Vector3.up, forwardDir).normalized;
 
@@ -160,7 +195,6 @@ public class PathRenderer : MonoBehaviour
         _verts.Add(transform.InverseTransformPoint(fr));
         _verts.Add(transform.InverseTransformPoint(bl));
         _verts.Add(transform.InverseTransformPoint(br));
-        // fl, bl, fr / fr, bl, br → 法線 +Y
         _tris.Add(0);
         _tris.Add(2);
         _tris.Add(1);
@@ -174,8 +208,7 @@ public class PathRenderer : MonoBehaviour
     void BuildRibbon(Vector3[] path, Color color)
     {
         EnsureMaterial();
-        Vector3[] centers = BuildCenterline(path);
-        if (centers.Length < 2)
+        if (!BuildCenterline(path) || _centers.Count < 2)
         {
             ClearRibbon();
             return;
@@ -185,34 +218,29 @@ public class PathRenderer : MonoBehaviour
         _verts.Clear();
         _tris.Clear();
 
-        // centers はワールド座標。MeshFilter はローカル頂点なので InverseTransform する。
-        // 半幅は AGV 本体幅で固定（角でも広げない）。
-        for (int i = 0; i < centers.Length; i++)
+        for (int i = 0; i < _centers.Count; i++)
         {
             Vector3 tan;
             if (i == 0)
-                tan = FlatDir(centers[1] - centers[0]);
-            else if (i == centers.Length - 1)
-                tan = FlatDir(centers[i] - centers[i - 1]);
+                tan = FlatDir(_centers[1] - _centers[0]);
+            else if (i == _centers.Count - 1)
+                tan = FlatDir(_centers[i] - _centers[i - 1]);
             else
             {
-                Vector3 inT = FlatDir(centers[i] - centers[i - 1]);
-                Vector3 outT = FlatDir(centers[i + 1] - centers[i]);
+                Vector3 inT = FlatDir(_centers[i] - _centers[i - 1]);
+                Vector3 outT = FlatDir(_centers[i + 1] - _centers[i]);
                 tan = FlatDir(inT + outT);
                 if (tan.sqrMagnitude < 1e-6f)
                     tan = outT;
             }
 
             Vector3 perp = Vector3.Cross(Vector3.up, tan).normalized;
-            Vector3 leftWorld = centers[i] - perp * half;
-            Vector3 rightWorld = centers[i] + perp * half;
-            _verts.Add(transform.InverseTransformPoint(leftWorld));
-            _verts.Add(transform.InverseTransformPoint(rightWorld));
+            _verts.Add(transform.InverseTransformPoint(_centers[i] - perp * half));
+            _verts.Add(transform.InverseTransformPoint(_centers[i] + perp * half));
 
-            if (i < centers.Length - 1)
+            if (i < _centers.Count - 1)
             {
                 int b = i * 2;
-                // left0, left1, right0 / right0, left1, right1 → 法線 +Y
                 _tris.Add(b);
                 _tris.Add(b + 2);
                 _tris.Add(b + 1);
@@ -227,11 +255,15 @@ public class PathRenderer : MonoBehaviour
 
     void ApplyMesh(Color color)
     {
+        _normals.Clear();
+        for (int i = 0; i < _verts.Count; i++)
+            _normals.Add(Vector3.up);
+
         _mesh.Clear();
         _mesh.SetVertices(_verts);
-        _mesh.SetTriangles(_tris, 0);
+        _mesh.SetNormals(_normals);
+        _mesh.SetTriangles(_tris, 0, false);
         _mesh.RecalculateBounds();
-        _mesh.RecalculateNormals();
 
         _mpb.Clear();
         if (_runtimeMat.HasProperty(BaseColorId))
@@ -242,11 +274,11 @@ public class PathRenderer : MonoBehaviour
         _meshRenderer.enabled = true;
     }
 
-    Vector3[] BuildCenterline(Vector3[] path)
+    bool BuildCenterline(Vector3[] path)
     {
         _centers.Clear();
         if (path == null || path.Length == 0)
-            return System.Array.Empty<Vector3>();
+            return false;
 
         float y = FactoryLayout.FloorY + PATH_GROUND_CLEARANCE;
         for (int i = 0; i < path.Length; i++)
@@ -258,7 +290,7 @@ public class PathRenderer : MonoBehaviour
         }
 
         if (_centers.Count == 0)
-            return System.Array.Empty<Vector3>();
+            return false;
 
         Vector3 forward = _centers.Count >= 2
             ? FlatDir(_centers[1] - _centers[0])
@@ -282,7 +314,7 @@ public class PathRenderer : MonoBehaviour
                 _centers.Add(_centers[0] + forward * 0.5f);
         }
 
-        return _centers.ToArray();
+        return _centers.Count > 0;
     }
 
     static Vector3 FlatDir(Vector3 v)
