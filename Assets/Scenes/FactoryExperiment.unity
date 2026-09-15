@@ -107802,6 +107802,7 @@ GameObject:
   - component: {fileID: 865285918}
   - component: {fileID: 865285917}
   - component: {fileID: 865285916}
+  - component: {fileID: 865285923}
   m_Layer: 0
   m_Name: ExperimentSystems
   m_TagString: Untagged
@@ -107919,6 +107920,19 @@ Transform:
   - {fileID: 390149805}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &865285923
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 865285915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d55e14e775985424f8ea54c2d609feb9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RiskScoringConfig
+  scoringMode: 0
 --- !u!1001 &865608195
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -198802,6 +198816,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1563933132}
   - component: {fileID: 1563933131}
+  - component: {fileID: 1563933133}
   m_Layer: 0
   m_Name: HRI_WarehouseFillLight
   m_TagString: Untagged
@@ -198889,6 +198904,35 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1563933133
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1563933130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1001 &1564564464
 PrefabInstance:
   m_ObjectHideFlags: 0
