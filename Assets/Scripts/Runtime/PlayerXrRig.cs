@@ -208,8 +208,8 @@ public class PlayerXrRig : MonoBehaviour
         Application.targetFrameRate = -1;
         QualitySettings.vSyncCount = 0;
         QualitySettings.shadowDistance = XrShadowDistance;
-        QualitySettings.shadows = ShadowQuality.HardOnly;
-        QualitySettings.shadowResolution = ShadowResolution.Low;
+        QualitySettings.shadows = UnityEngine.ShadowQuality.HardOnly;
+        QualitySettings.shadowResolution = UnityEngine.ShadowResolution.Low;
         QualitySettings.shadowCascades = 1;
         QualitySettings.lodBias = 0.55f;
         QualitySettings.maximumLODLevel = 0;
@@ -262,8 +262,8 @@ public class PlayerXrRig : MonoBehaviour
             }
         }
 
-        if (RenderSettings.ambientMode == UnityEngine.AmbientMode.Flat
-            || RenderSettings.ambientMode == UnityEngine.AmbientMode.Trilight)
+        if (RenderSettings.ambientMode == UnityEngine.Rendering.AmbientMode.Flat
+            || RenderSettings.ambientMode == UnityEngine.Rendering.AmbientMode.Trilight)
         {
             RenderSettings.ambientIntensity = Mathf.Max(RenderSettings.ambientIntensity, 1.15f);
         }
