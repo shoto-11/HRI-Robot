@@ -17,8 +17,6 @@ public class PathRenderer : MonoBehaviour
     const float PATH_GROUND_CLEARANCE = 0.05f;
     const float DISPLAY_PLAYER_DISTANCE = FactoryLayout.DisplayDistanceMax;
     const float MinPointSpacing = 0.05f;
-    /// <summary>マイター拡大上限。幅そのものは AGV 実寸に固定し、角の継ぎだけ伸ばす。</summary>
-    const float MiterLimit = 2.5f;
     static readonly Color BaselineColor = new Color(0.25f, 0.55f, 1f);
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     static readonly int ColorId = Shader.PropertyToID("_Color");
@@ -165,8 +163,7 @@ public class PathRenderer : MonoBehaviour
         _tris.Clear();
 
         // centers はワールド座標。MeshFilter はローカル頂点なので InverseTransform する。
-        // 三角の巻き順は上向き法線（+Y）になるよう CCW（上から見て）にする。
-        // 半幅は AGV 実寸固定。マイターは角の継ぎ目用で、線分垂直方向の幅は half のまま。
+        // 半幅は AGV 本体幅で固定（角でも広げない）。
         for (int i = 0; i < centers.Length; i++)
         {
             Vector3 tan;
@@ -184,19 +181,8 @@ public class PathRenderer : MonoBehaviour
             }
 
             Vector3 perp = Vector3.Cross(Vector3.up, tan).normalized;
-            float miter = half;
-            if (i > 0 && i < centers.Length - 1)
-            {
-                Vector3 inT = FlatDir(centers[i] - centers[i - 1]);
-                Vector3 inPerp = Vector3.Cross(Vector3.up, inT).normalized;
-                float cosHalf = Mathf.Clamp(Vector3.Dot(inPerp, perp), 0.25f, 1f);
-                float scale = 1f / cosHalf;
-                if (scale > MiterLimit) scale = MiterLimit;
-                miter = half * scale;
-            }
-
-            Vector3 leftWorld = centers[i] - perp * miter;
-            Vector3 rightWorld = centers[i] + perp * miter;
+            Vector3 leftWorld = centers[i] - perp * half;
+            Vector3 rightWorld = centers[i] + perp * half;
             _verts.Add(transform.InverseTransformPoint(leftWorld));
             _verts.Add(transform.InverseTransformPoint(rightWorld));
 
@@ -310,6 +296,9 @@ public class PathRenderer : MonoBehaviour
         return (_cachedWidth * 0.5f, _cachedHalfLength);
     }
 
+    /// <summary>
+    /// 経路幅は AGV 本体のみ。積載箱 (PlasticBox / Cargo) は含めない。
+    /// </summary>
     static bool TryMeasureFootprint(Transform root, out float width, out float length)
     {
         width = 0f;
@@ -317,48 +306,97 @@ public class PathRenderer : MonoBehaviour
         var body = root.Find("Body");
         if (body != null)
         {
-            // 手続き生成 AGV: Body の lossyScale がワールド寸法
             width = Mathf.Abs(body.lossyScale.x);
             length = Mathf.Abs(body.lossyScale.z);
             return width > 0.05f && length > 0.05f;
         }
 
-        bool any = false;
-        float minRight = float.MaxValue, maxRight = float.MinValue;
-        float minFwd = float.MaxValue, maxFwd = float.MinValue;
-        Vector3 origin = root.position;
-        Vector3 right = FlatDir(root.right);
-        Vector3 fwd = FlatDir(root.forward);
-
+        // Palletrobot 本体メッシュを優先（タイヤより車体に合わせる）
+        Renderer chassis = null;
         foreach (var r in root.GetComponentsInChildren<Renderer>(true))
         {
-            if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
-            if (r is LineRenderer) continue;
-            string n = r.gameObject.name;
-            if (ContainsIgnoreCase(n, "Path") || ContainsIgnoreCase(n, "Stop")
-                || ContainsIgnoreCase(n, "shadow") || ContainsIgnoreCase(n, "Cargo"))
-                continue;
-
-            Bounds b = r.bounds;
-            FillBoundCorners(b);
-            for (int i = 0; i < 8; i++)
+            if (r == null || r is LineRenderer) continue;
+            if (string.Equals(r.gameObject.name, "Palletrobot", System.StringComparison.OrdinalIgnoreCase))
             {
-                Vector3 d = _boundCorners[i] - origin;
-                float alongRight = Vector3.Dot(d, right);
-                float alongFwd = Vector3.Dot(d, fwd);
-                if (alongRight < minRight) minRight = alongRight;
-                if (alongRight > maxRight) maxRight = alongRight;
-                if (alongFwd < minFwd) minFwd = alongFwd;
-                if (alongFwd > maxFwd) maxFwd = alongFwd;
+                chassis = r;
+                break;
             }
-            any = true;
+        }
+
+        float minX = float.MaxValue, maxX = float.MinValue;
+        float minZ = float.MaxValue, maxZ = float.MinValue;
+        bool any = false;
+
+        if (chassis != null)
+        {
+            any = AccumulateRendererLocalXZ(root, chassis, ref minX, ref maxX, ref minZ, ref maxZ);
+        }
+        else
+        {
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                if (r is LineRenderer) continue;
+                if (IsExcludedFromFootprint(r.gameObject.name)) continue;
+                if (AccumulateRendererLocalXZ(root, r, ref minX, ref maxX, ref minZ, ref maxZ))
+                    any = true;
+            }
         }
 
         if (!any) return false;
-        width = maxRight - minRight;
-        length = maxFwd - minFwd;
+
+        float localW = maxX - minX;
+        float localL = maxZ - minZ;
+        width = root.TransformVector(new Vector3(localW, 0f, 0f)).magnitude;
+        length = root.TransformVector(new Vector3(0f, 0f, localL)).magnitude;
         return width > 0.05f && length > 0.05f;
     }
+
+    static bool AccumulateRendererLocalXZ(
+        Transform root, Renderer r,
+        ref float minX, ref float maxX, ref float minZ, ref float maxZ)
+    {
+        var mf = r.GetComponent<MeshFilter>();
+        if (mf != null && mf.sharedMesh != null)
+        {
+            Bounds mb = mf.sharedMesh.bounds;
+            Vector3 c = mb.center;
+            Vector3 e = mb.extents;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 lp = c + new Vector3(
+                    (i & 1) == 0 ? -e.x : e.x,
+                    (i & 2) == 0 ? -e.y : e.y,
+                    (i & 4) == 0 ? -e.z : e.z);
+                Vector3 local = root.InverseTransformPoint(r.transform.TransformPoint(lp));
+                if (local.x < minX) minX = local.x;
+                if (local.x > maxX) maxX = local.x;
+                if (local.z < minZ) minZ = local.z;
+                if (local.z > maxZ) maxZ = local.z;
+            }
+            return true;
+        }
+
+        Bounds b = r.bounds;
+        FillBoundCorners(b);
+        for (int i = 0; i < 8; i++)
+        {
+            Vector3 local = root.InverseTransformPoint(_boundCorners[i]);
+            if (local.x < minX) minX = local.x;
+            if (local.x > maxX) maxX = local.x;
+            if (local.z < minZ) minZ = local.z;
+            if (local.z > maxZ) maxZ = local.z;
+        }
+        return true;
+    }
+
+    static bool IsExcludedFromFootprint(string n) =>
+        ContainsIgnoreCase(n, "Path")
+        || ContainsIgnoreCase(n, "Stop")
+        || ContainsIgnoreCase(n, "shadow")
+        || ContainsIgnoreCase(n, "Cargo")
+        || ContainsIgnoreCase(n, "PlasticBox")
+        || ContainsIgnoreCase(n, "Box");
 
     static void FillBoundCorners(Bounds b)
     {
