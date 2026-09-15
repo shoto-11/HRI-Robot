@@ -12,7 +12,7 @@ public static class ExperimentDataTest
         string path = Path.Combine(Application.persistentDataPath, "HRI_AGV_Result_TEST.xlsx");
         var summary = new[]
         {
-            new[] { "test", "2026-08-19 00:00:00", "Baseline", "1", "12.50", "1", "3.20", "((4.50,2,18.100,0.200,22.000))" },
+            new[] { "test", "2026-08-19 00:00:00", "Baseline", "1", "12.50", "1", "3.20", "((4.50,2,18.100,22.000))" },
             new[] { "test", "2026-08-19 00:01:00", "Proposed", "1", "11.00", "0", "2.10", "()" },
         };
         var sheets = new List<ExperimentWorkbook.TrajectorySheet>

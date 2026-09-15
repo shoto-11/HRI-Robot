@@ -190,7 +190,7 @@ public class MeasurementHub : MonoBehaviour
         {
             _sessionId, "dummy", "Baseline", "1", "1.50", "1", "12.00",
             "0.40", "0.850", "45.0", "12.0",
-            "((0.50,3,10.000,0.200,22.000))"
+            "((0.50,3,10.000,22.000))"
         });
         _sheets.Add(new ExperimentWorkbook.TrajectorySheet
         {

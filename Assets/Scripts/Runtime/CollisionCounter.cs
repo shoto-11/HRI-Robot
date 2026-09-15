@@ -146,7 +146,6 @@ public class CollisionCounter : MonoBehaviour
                 .Append(e.Time.ToString("F2", inv)).Append(",")
                 .Append(e.RobotId).Append(",")
                 .Append(e.Position.x.ToString("F3", inv)).Append(",")
-                .Append(e.Position.y.ToString("F3", inv)).Append(",")
                 .Append(e.Position.z.ToString("F3", inv))
                 .Append(")");
         }
