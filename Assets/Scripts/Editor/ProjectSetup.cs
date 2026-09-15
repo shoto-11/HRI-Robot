@@ -118,7 +118,6 @@ namespace HRIRobot.EditorTools
                     n.Contains("OculusTouchController")
                     || n.Contains("MetaQuestTouch")
                     || n.Contains("KHRSimpleController")
-                    || n.Contains("FoveatedRendering")
                     || (group == BuildTargetGroup.Android && (n.Contains("MetaQuestFeature") || n.Contains("OculusQuestFeature")));
                 if (!want || feature.enabled) continue;
                 feature.enabled = true;
