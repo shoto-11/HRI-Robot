@@ -197,15 +197,36 @@ public class ExperimentManager : MonoBehaviour
         return t;
     }
 
+    const float CaseUiDistanceM = 2.0f;
+    /// <summary>歩行カプセル（約 1.7 m）より上に置き、進んでも突き当たらない高さ。</summary>
+    const float CaseUiWorldHeightM = 2.25f;
+
     void PositionUI()
     {
-        Transform cam = Camera.main?.transform ?? _xrOrigin;
-        if (cam == null) return;
-        Vector3 fwd = cam.forward; fwd.y = 0f;
+        Transform cam = Camera.main?.transform;
+        Transform origin = _xrOrigin != null ? _xrOrigin : cam;
+        if (origin == null) return;
+
+        Vector3 fwd = cam != null ? cam.forward : origin.forward;
+        fwd.y = 0f;
         if (fwd.sqrMagnitude < 0.001f) fwd = Vector3.forward;
         fwd.Normalize();
-        _uiRoot.transform.position = cam.position + fwd * 2.5f + Vector3.up * 0.1f;
-        _uiRoot.transform.rotation = Quaternion.LookRotation(fwd);
+
+        float floorY = origin.position.y;
+        Vector3 panelPos = new Vector3(origin.position.x, floorY, origin.position.z)
+            + fwd * CaseUiDistanceM;
+        panelPos.y = floorY + CaseUiWorldHeightM;
+
+        Vector3 lookFrom = cam != null
+            ? cam.position
+            : (origin.position + Vector3.up * FactoryLayout.EyeHeightM);
+        Vector3 awayFromPlayer = panelPos - lookFrom;
+        if (awayFromPlayer.sqrMagnitude < 0.0001f)
+            awayFromPlayer = fwd;
+        // World Space Canvas は +Z 側が表。カメラから離れる向きにすればプレイヤー側を向く。
+        _uiRoot.transform.SetPositionAndRotation(
+            panelPos,
+            Quaternion.LookRotation(awayFromPlayer.normalized, Vector3.up));
     }
 
     void SetUIVisible(bool v)
